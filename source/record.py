@@ -5,7 +5,7 @@ import wfdb
 
 class Record:
     def __init__(self):
-        self.file_name = "C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project\\mit-bih\\files\\04043"
+        self.file_name = "C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files\\04043"
         self.record = wfdb.rdrecord(self.file_name)
 
     def visualization(self):
