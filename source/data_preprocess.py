@@ -4,7 +4,7 @@ from sklearn.preprocessing import scale
 import glob, os
 from typing import List
 
-BEAT_SIZE = 250
+BEAT_SIZE = 280
 SEQ_SIZE = 100
 OVERLAP = 0
 
@@ -31,6 +31,7 @@ def get_beat_list_from_ecg_data(datfile):
     annotation_atr = wfdb.rdann(recordpath, extension='atr', sampfrom=0, sampto=None, pbdir=None)
     annotation_qrs = wfdb.rdann(recordpath, extension='qrs', sampfrom=0, sampto=None, pbdir=None)
     Vctrecord = record.p_signals
+    # wfdb.plotrec(record, annotation=annotation_qrs, title='Record 100 from MIT-BIH Arrhythmia Database', timeunits='seconds')
 
     beats_list = split_to_beats(Vctrecord, annotation_qrs, annotation_atr)
     return beats_list
@@ -48,7 +49,9 @@ def split_to_beats(p_signals, annotation_qrs, annotation_atr) -> List[Beat]:
                 if annotation_atr.aux_note[atr_pointer] == '(AFIB':
                     annotation = 1
                 atr_pointer += 1
-        beat = Beat(start, end, p_signals[start:end], annotation_qrs.sample[i], i, annotation)
+        beat = Beat(start, end, p_signals[start:end], annotation_qrs.symbol[i], i, annotation)
+        if annotation_qrs.sample[i] == 8775761:
+            a=0
         beats_list.append(beat)
         start = end
     return beats_list
@@ -56,7 +59,7 @@ def split_to_beats(p_signals, annotation_qrs, annotation_atr) -> List[Beat]:
 
 def split_to_seq(beats_list, seq_size, overlap):
     num_big_data = 0
-    for j in range(0, len(beats_list) - seq_size, seq_size-overlap):
+    for j in range(0, len(beats_list) - 5000, seq_size-overlap):
         padded = np.zeros((BEAT_SIZE * seq_size, 2))
         last_idx = 0
         y = 0
@@ -65,8 +68,10 @@ def split_to_seq(beats_list, seq_size, overlap):
                 y = 1
             data = beats_list[i].p_signal
             # this is to check that we made enough space for all the data
-            # if data.shape[0] > 250:
-            #     num_big_data += 1
+            if last_idx + data.shape[0] > BEAT_SIZE * seq_size:
+                a=0
+            if data.shape[0] > 250:
+                num_big_data += 1
             padded[last_idx:last_idx+data.shape[0], :] = data
             last_idx = data.shape[0] + last_idx
             assert last_idx < BEAT_SIZE * seq_size
@@ -85,8 +90,8 @@ def split_to_seq(beats_list, seq_size, overlap):
     return xx, yy
 
 
-if __name__ == '__main__':
-    qtdbpath = "C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files"
+def get_data():
+    qtdbpath = "C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\small_files"
     datfiles = glob.glob(os.path.join(qtdbpath, "*.dat"))
 
     for datfile in datfiles:
@@ -101,3 +106,9 @@ if __name__ == '__main__':
             except NameError:  # if xx does not exist yet (on init)
                 xx = x
                 yy = y
+    return xx, yy
+
+
+if __name__ == '__main__':
+    xx, yy = get_data()
+
