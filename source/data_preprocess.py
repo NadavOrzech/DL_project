@@ -4,7 +4,7 @@ from sklearn.preprocessing import scale
 import glob, os
 from typing import List
 
-BEAT_SIZE = 280
+BEAT_SIZE = 400
 SEQ_SIZE = 100
 OVERLAP = 0
 
@@ -28,8 +28,8 @@ class Beat:
 def get_beat_list_from_ecg_data(datfile):
     recordpath = datfile.split(".dat")[0]
     record = wfdb.rdsamp(recordpath)
-    annotation_atr = wfdb.rdann(recordpath, extension='atr', sampfrom=0, sampto=None, pbdir=None)
-    annotation_qrs = wfdb.rdann(recordpath, extension='qrs', sampfrom=0, sampto=None, pbdir=None)
+    annotation_atr = wfdb.rdann(recordpath, extension='atr', sampfrom=0, sampto=None)
+    annotation_qrs = wfdb.rdann(recordpath, extension='qrs', sampfrom=0, sampto=None)
     Vctrecord = record.p_signals
     # wfdb.plotrec(record, annotation=annotation_qrs, title='Record 100 from MIT-BIH Arrhythmia Database', timeunits='seconds')
 
@@ -90,6 +90,31 @@ def split_to_seq(beats_list, seq_size, overlap):
     return xx, yy
 
 
+def split_to_beat(beats_list, seq_size, overlap):
+    for j in range(0, len(beats_list) - 5000, seq_size - overlap):
+        y = 0
+        padded = np.zeros((seq_size, BEAT_SIZE, 2))
+        for i in range(seq_size):
+            data = beats_list[j+i].p_signal
+            # TODO : deal with big beats.. what do we do now??
+            min_input = min(BEAT_SIZE, data.shape[0])
+            padded[i, :min_input, :] = data[:min_input, :]
+            if beats_list[j+i].annotation == 1:
+                y = 1
+            # try:
+            #     seq_x = np.vstack((seq_x, padded))
+            # except UnboundLocalError:
+            #     seq_x = padded
+        try:
+            xx = np.vstack((xx, [padded]))
+            yy = np.vstack((yy, [y]))
+        except UnboundLocalError:  ## on init
+            xx = [padded]
+            yy = [y]
+
+    return xx, yy
+
+
 def get_data():
     qtdbpath = "C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\small_files"
     datfiles = glob.glob(os.path.join(qtdbpath, "*.dat"))
@@ -98,7 +123,7 @@ def get_data():
         qf = os.path.splitext(datfile)[0] + '.atr'
         if os.path.isfile(qf):
             beats_list = get_beat_list_from_ecg_data(datfile)
-            x, y = split_to_seq(beats_list, SEQ_SIZE, OVERLAP)
+            x, y = split_to_beat(beats_list, SEQ_SIZE, OVERLAP)
             # TODO : consider normalization of x
             try:  # concat
                 xx = np.vstack((xx, x))
