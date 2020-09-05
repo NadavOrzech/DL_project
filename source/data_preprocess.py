@@ -1,7 +1,8 @@
 import wfdb
 import numpy as np
 from sklearn.preprocessing import scale
-import glob, os
+import glob
+import os
 from typing import List
 
 import torch
@@ -26,17 +27,16 @@ class Beat:
         self.index = index
         self.annotation = annotation
 
-class DataProccesor():
-    def __init__(self, input_dir, proccesed_data_dir, overlap):
-        self.input_dir = input_dir
-        if not os.path.isdir(proccesed_data_dir):
-            os.mkdir(proccesed_data_dir)
-        
-        self.proccesed_data_dir = os.path.join(proccesed_data_dir,"overlap_{}".format(overlap))
-        if not os.path.isdir(self.proccesed_data_dir):
-            os.mkdir(self.proccesed_data_dir)
-        
 
+class DataProcessor():
+    def __init__(self, input_dir, processed_data_dir, overlap):
+        self.input_dir = input_dir
+        if not os.path.isdir(processed_data_dir):
+            os.mkdir(processed_data_dir)
+        
+        self.processed_data_dir = os.path.join(processed_data_dir,"overlap_{}".format(overlap))
+        if not os.path.isdir(self.processed_data_dir):
+            os.mkdir(self.processed_data_dir)
 
     def get_beat_list_from_ecg_data(self, datfile):
         recordpath = datfile.split(".dat")[0]
@@ -48,7 +48,6 @@ class DataProccesor():
 
         beats_list = self.split_to_beats_list(Vctrecord, annotation_qrs, annotation_atr)
         return beats_list
-
 
     def split_to_beats_list(self, p_signals, annotation_qrs, annotation_atr) -> List[Beat]:
         # TODO : need to decide if we eliminate "bad" signals (annotation_qrs.symbol not N)
@@ -68,7 +67,6 @@ class DataProccesor():
             beats_list.append(beat)
             start = end
         return beats_list
-
 
     def split_to_seq(self, beats_list, seq_size, overlap):
         num_big_data = 0
@@ -102,7 +100,6 @@ class DataProccesor():
         print("output: ", xx.shape)
         return xx, yy
 
-
     def split_to_beat_sequence(self,beats_list, seq_size, overlap):
         for j in range(0, len(beats_list) - 5000, seq_size - overlap):
             y = 0
@@ -132,10 +129,10 @@ class DataProccesor():
         datfiles = glob.glob(os.path.join(self.input_dir, "*.dat"))
 
         for i, datfile in enumerate(datfiles):
-            print("Strating file num: {}/{}".format(i+1,len(datfiles)))
+            print("Starting file num: {}/{}".format(i+1,len(datfiles)))
             file_name = os.path.basename(datfile).split('.')[0]
-            x_path = os.path.join(self.proccesed_data_dir, "{}_x.pt".format(file_name))
-            y_path = os.path.join(self.proccesed_data_dir, "{}_y.pt".format(file_name))
+            x_path = os.path.join(self.processed_data_dir, "{}_x.pt".format(file_name))
+            y_path = os.path.join(self.processed_data_dir, "{}_y.pt".format(file_name))
             if os.path.isfile(x_path) and os.path.isfile(y_path):
                 x = torch.load(x_path)
                 y = torch.load(y_path)
@@ -267,8 +264,8 @@ class DataProccesor():
 '''
 
 if __name__ == '__main__':
-    files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files'
-    proccesed_data_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\proccesed_data'
+    files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
+    processed_data_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\processed_data'
     # xx, yy = get_data(files_dir)
-    proccesor = DataProccesor(files_dir,proccesed_data_dir,0)
-    xx, yy = proccesor.get_data()    
+    processor = DataProcessor(files_dir, processed_data_dir, 0)
+    xx, yy = processor.get_data()
