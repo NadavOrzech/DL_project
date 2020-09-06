@@ -36,6 +36,7 @@ class DataProccesor():
         if not os.path.isdir(self.proccesed_data_dir):
             os.mkdir(self.proccesed_data_dir)
         
+        self.overlap = overlap
 
 
     def get_beat_list_from_ecg_data(self, datfile):
@@ -133,6 +134,8 @@ class DataProccesor():
 
         for i, datfile in enumerate(datfiles):
             print("Strating file num: {}/{}".format(i+1,len(datfiles)))
+            # if i == 10:
+            #     break
             file_name = os.path.basename(datfile).split('.')[0]
             x_path = os.path.join(self.proccesed_data_dir, "{}_x.pt".format(file_name))
             y_path = os.path.join(self.proccesed_data_dir, "{}_y.pt".format(file_name))
@@ -143,7 +146,7 @@ class DataProccesor():
                 qf = os.path.splitext(datfile)[0] + '.atr'
                 if os.path.isfile(qf):
                     beats_list = self.get_beat_list_from_ecg_data(datfile)
-                    x, y = self.split_to_beat_sequence(beats_list, SEQ_SIZE, OVERLAP)
+                    x, y = self.split_to_beat_sequence(beats_list, SEQ_SIZE, self.overlap)
                 # TODO : consider normalization of x
                 torch.save(x, x_path)
                 torch.save(y, y_path)
@@ -270,5 +273,5 @@ if __name__ == '__main__':
     files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files'
     proccesed_data_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\proccesed_data'
     # xx, yy = get_data(files_dir)
-    proccesor = DataProccesor(files_dir,proccesed_data_dir,0)
+    proccesor = DataProccesor(files_dir,proccesed_data_dir,99)
     xx, yy = proccesor.get_data()    
