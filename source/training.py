@@ -3,7 +3,7 @@ import torch.nn as nn
 import time
 import torch.optim as optim
 from data_loader import get_dataloader
-from data_preprocess import BEAT_SIZE
+from data_preprocess import BEAT_SIZE, OVERLAP
 
 INPUT_SIZE = (100, 4, BEAT_SIZE*2)
 HIDDEN_SIZE = (100, BEAT_SIZE)
@@ -13,7 +13,7 @@ NUM_EPOCHS = 4
 
 
 def train(model, optimizer, loss_fn, dataloader, max_epochs=4, max_batches=200):
-    print("-----------------------------Starting training------------------------------")
+    print(f"{'-'*20}Starting testing with overlap {OVERLAP}{'-'*20}")
     for epoch_idx in range(max_epochs):
         total_loss, num_correct = 0, 0
         start_time = time.time()
@@ -55,7 +55,7 @@ def train(model, optimizer, loss_fn, dataloader, max_epochs=4, max_batches=200):
 
 
 def test(model, loss_fn, dataloader, max_epochs=4, max_batches=200):
-    print("-----------------------------Starting testing------------------------------")
+    print(f"{'-'*20}Starting testing with overlap {OVERLAP}{'-'*20}")
     # for epoch_idx in range(max_epochs):
     total_loss, num_correct = 0, 0
     start_time = time.time()
