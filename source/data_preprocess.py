@@ -3,7 +3,9 @@ import numpy as np
 from sklearn.preprocessing import scale
 import glob
 import os
+import math
 from typing import List
+import time
 
 import torch
 
@@ -103,33 +105,35 @@ class DataProcessor():
         return xx, yy
 
     def split_to_beat_sequence(self, beats_list, seq_size, overlap):
+        dim_0_size = math.ceil((len(beats_list) - 5000) / (seq_size - overlap))
+        dim_0_counter = 0
+        xx = np.zeros((dim_0_size, seq_size, BEAT_SIZE, 2))
+        yy = np.zeros((dim_0_size, 1))
         for j in range(0, len(beats_list) - 5000, seq_size - overlap):
             y = 0
-            padded = np.zeros((seq_size, BEAT_SIZE, 2))
             for i in range(seq_size):
                 data = beats_list[j + i].p_signal
                 # TODO : deal with big beats.. what do we do now??
                 min_input = min(BEAT_SIZE, data.shape[0])
-                padded[i, :min_input, :] = data[:min_input, :]
+                xx[dim_0_counter, i, :min_input, :] = data[:min_input, :]
                 if beats_list[j + i].annotation == 1:
                     y = 1
-                # try:
-                #     seq_x = np.vstack((seq_x, padded))
-                # except UnboundLocalError:
-                #     seq_x = padded
-            try:
-                xx = np.vstack((xx, [padded]))
-                yy = np.vstack((yy, [y]))
-            except UnboundLocalError:  ## on init
-                xx = [padded]
-                yy = [y]
+            yy[dim_0_counter] = y
+            dim_0_counter += 1
+
+            # try:
+                # xx = np.vstack((xx, [padded]))
+                # yy = np.vstack((yy, [y]))
+            # except UnboundLocalError:  ## on init
+                # xx = [padded]
+                # yy = [y]
 
         return xx, yy
 
     def get_data(self):
         # qtdbpath = "C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\small_files"
         datfiles = glob.glob(os.path.join(self.input_dir, "*.dat"))
-
+        start_time = time.time()
         for i, datfile in enumerate(datfiles):
             print("Starting file num: {}/{}".format(i + 1, len(datfiles)))
             # if i == 10:
@@ -154,7 +158,7 @@ class DataProcessor():
             except NameError:  # if xx does not exist yet (on init)
                 xx = x
                 yy = y
-
+        print(f"elapsed time for preprocess = {time.time() - start_time: .1f} sec")
         return xx, yy
 
 
