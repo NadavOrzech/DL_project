@@ -5,8 +5,8 @@ import torch.optim as optim
 from data_loader import get_dataloader
 from data_preprocess import BEAT_SIZE
 
-INPUT_SIZE = (100, 4, 1000)
-HIDDEN_SIZE = (100, 400)
+INPUT_SIZE = (100, 4, BEAT_SIZE*2)
+HIDDEN_SIZE = (100, BEAT_SIZE)
 BATCH_SIZE = 4
 BEATS = BEAT_SIZE*2
 NUM_EPOCHS = 4
@@ -56,14 +56,15 @@ def train(model, optimizer, loss_fn, dataloader, max_epochs=4, max_batches=200):
 
 def test(model, loss_fn, dataloader, max_epochs=4, max_batches=200):
     print("-----------------------------Starting testing------------------------------")
-    for epoch_idx in range(max_epochs):
-        total_loss, num_correct = 0, 0
-        start_time = time.time()
-        tp_tot, fp_tot, tn_tot, fn_tot = 0, 0, 0, 0
-        for batch_idx, batch in enumerate(dataloader):
-            X, y = batch[0], batch[1]
+    # for epoch_idx in range(max_epochs):
+    total_loss, num_correct = 0, 0
+    start_time = time.time()
+    tp_tot, fp_tot, tn_tot, fn_tot = 0, 0, 0, 0
+    for batch_idx, batch in enumerate(dataloader):
+        X, y = batch[0], batch[1]
 
-            # Forward pass
+        # Forward pass
+        with torch.no_grad():
             X = torch.transpose(X, dim0=0, dim1=1)
             y_pred_log_proba, hidden_dims = model(X)
             last_output = y_pred_log_proba[-1]
@@ -81,12 +82,12 @@ def test(model, loss_fn, dataloader, max_epochs=4, max_batches=200):
             num_correct += torch.sum(y_pred == y).float().item()
             total_samp = tp_tot + tn_tot + fp_tot + fn_tot
 
-        print(
-            f"Epoch #{epoch_idx}, loss={total_loss / (total_samp / BATCH_SIZE):.3f}, accuracy={num_correct / total_samp:.3f}, elapsed={time.time() - start_time:.1f} sec")
-        print(f"tp: {tp_tot}, fp: {fp_tot}, tn: {tn_tot}, fn: {fn_tot}")
-        if tp_tot + fn_tot > 0:
-            print(f"Positive accuracy: {tp_tot / (tp_tot + fn_tot)}")
-        print(f"Negative accuracy: {tn_tot / (tn_tot + fp_tot)}")
+    print(
+        f"loss={total_loss / (total_samp / BATCH_SIZE):.3f}, accuracy={num_correct / total_samp:.3f}, elapsed={time.time() - start_time:.1f} sec")
+    print(f"tp: {tp_tot}, fp: {fp_tot}, tn: {tn_tot}, fn: {fn_tot}")
+    if tp_tot + fn_tot > 0:
+        print(f"Positive accuracy: {tp_tot / (tp_tot + fn_tot)}")
+    print(f"Negative accuracy: {tn_tot / (tn_tot + fp_tot)}")
 
 
 def get_model():

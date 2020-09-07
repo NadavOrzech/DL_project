@@ -7,9 +7,9 @@ from typing import List
 
 import torch
 
-BEAT_SIZE = 400
+BEAT_SIZE = 250
 SEQ_SIZE = 100
-OVERLAP = 0
+OVERLAP = 99
 
 
 class Beat:
@@ -33,13 +33,12 @@ class DataProcessor():
         self.input_dir = input_dir
         if not os.path.isdir(processed_data_dir):
             os.mkdir(processed_data_dir)
-        
+
         self.overlap = overlap
 
-        self.processed_data_dir = os.path.join(processed_data_dir,"overlap_{}".format(overlap))
+        self.processed_data_dir = os.path.join(processed_data_dir, "overlap_{}".format(overlap))
         if not os.path.isdir(self.processed_data_dir):
             os.mkdir(self.processed_data_dir)
-
 
     def get_beat_list_from_ecg_data(self, datfile):
         recordpath = datfile.split(".dat")[0]
@@ -73,20 +72,20 @@ class DataProcessor():
 
     def split_to_seq(self, beats_list, seq_size, overlap):
         num_big_data = 0
-        for j in range(0, len(beats_list) - 5000, seq_size-overlap):
+        for j in range(0, len(beats_list) - 5000, seq_size - overlap):
             padded = np.zeros((BEAT_SIZE * seq_size, 2))
             last_idx = 0
             y = 0
-            for i in range(j, j+seq_size):
+            for i in range(j, j + seq_size):
                 if beats_list[i].annotation == 1:
                     y = 1
                 data = beats_list[i].p_signal
                 # this is to check that we made enough space for all the data
                 if last_idx + data.shape[0] > BEAT_SIZE * seq_size:
-                    a=0
+                    a = 0
                 if data.shape[0] > 250:
                     num_big_data += 1
-                padded[last_idx:last_idx+data.shape[0], :] = data
+                padded[last_idx:last_idx + data.shape[0], :] = data
                 last_idx = data.shape[0] + last_idx
                 assert last_idx < BEAT_SIZE * seq_size
 
@@ -103,16 +102,16 @@ class DataProcessor():
         print("output: ", xx.shape)
         return xx, yy
 
-    def split_to_beat_sequence(self,beats_list, seq_size, overlap):
+    def split_to_beat_sequence(self, beats_list, seq_size, overlap):
         for j in range(0, len(beats_list) - 5000, seq_size - overlap):
             y = 0
             padded = np.zeros((seq_size, BEAT_SIZE, 2))
             for i in range(seq_size):
-                data = beats_list[j+i].p_signal
+                data = beats_list[j + i].p_signal
                 # TODO : deal with big beats.. what do we do now??
                 min_input = min(BEAT_SIZE, data.shape[0])
                 padded[i, :min_input, :] = data[:min_input, :]
-                if beats_list[j+i].annotation == 1:
+                if beats_list[j + i].annotation == 1:
                     y = 1
                 # try:
                 #     seq_x = np.vstack((seq_x, padded))
@@ -132,7 +131,7 @@ class DataProcessor():
         datfiles = glob.glob(os.path.join(self.input_dir, "*.dat"))
 
         for i, datfile in enumerate(datfiles):
-            print("Strating file num: {}/{}".format(i+1,len(datfiles)))
+            print("Starting file num: {}/{}".format(i + 1, len(datfiles)))
             # if i == 10:
             #     break
             file_name = os.path.basename(datfile).split('.')[0]
@@ -157,6 +156,7 @@ class DataProcessor():
                 yy = y
 
         return xx, yy
+
 
 '''
     def get_beat_list_from_ecg_data(datfile):
@@ -269,10 +269,8 @@ class DataProcessor():
 '''
 
 if __name__ == '__main__':
-    files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
-    processed_data_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\processed_data'
-    # xx, yy = get_data(files_dir)
-
-    processor = DataProcessor(files_dir, processed_data_dir, 0)
+    files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\small_files'
+    processed_data_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\processed_data_250'
+    processor = DataProcessor(files_dir, processed_data_dir, OVERLAP)
     xx, yy = processor.get_data()
 
