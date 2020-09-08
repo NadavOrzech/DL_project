@@ -30,14 +30,14 @@ class Beat:
 class DataProcessor():
     def __init__(self, input_dir, processed_data_dir, overlap):
         self.input_dir = input_dir
-        if not os.path.isdir(processed_data_dir):
-            os.mkdir(processed_data_dir)
+        # if not os.path.isdir(processed_data_dir):
+        #     os.mkdir(processed_data_dir)
         
         self.overlap = overlap
 
-        self.processed_data_dir = os.path.join(processed_data_dir,"overlap_{}".format(overlap))
-        if not os.path.isdir(self.processed_data_dir):
-            os.mkdir(self.processed_data_dir)
+        # self.processed_data_dir = os.path.join(processed_data_dir,"overlap_{}".format(overlap))
+        # if not os.path.isdir(self.processed_data_dir):
+        #     os.mkdir(self.processed_data_dir)
 
     def get_beat_list_from_ecg_data(self, datfile):
         # from given datfile name, splits to RR intervals and save the data on Beat list
@@ -107,7 +107,7 @@ class DataProcessor():
         datasets, weight = [], []
         num_samples, num_pos, num_neg = 0, 0, 0
         for i, datfile in enumerate(datfiles):
-            print("Starting file num: {}/{}".format(datfile, len(datfiles)))
+            print("Starting file num: {}/{}".format(i+1, len(datfiles)))
             qf = os.path.splitext(datfile)[0] + '.atr'
             if os.path.isfile(qf):
                 beats_list = self.get_beat_list_from_ecg_data(datfile)
@@ -117,19 +117,19 @@ class DataProcessor():
                 x = torch.flatten(x, start_dim=2)  # TODO: maybe flatten differnetly - do first column then second column (and not first second first second..)
                 y = torch.tensor(y, dtype=torch.float32)
                 num_samples += x.shape[0]
-                num_pos += len([i for i in y if i == 1])
-                num_neg += len([i for i in y if i == 0])
+                # num_pos += len([i for i in y if i == 1])
+                # num_neg += len([i for i in y if i == 0])
                 # TODO : consider normalization of x
                 datasets.append(torch.utils.data.TensorDataset(x, y))
-                try:  # concat
-                    labels = np.vstack((labels, yy))
-                except UnboundLocalError:  # if xx does not exist yet (on init)
-                    labels = yy
-        for label in labels:
-            if label == 1:
-                weight.append(1. / num_pos)
-            else:
-                weight.append(1. / num_neg)
+                # try:  # concat
+                #     labels = np.vstack((labels, yy))
+                # except UnboundLocalError:  # if xx does not exist yet (on init)
+                #     labels = yy
+        # for label in labels:
+        #     if label == 1:
+        #         weight.append(1. / num_pos)
+        #     else:
+        #         weight.append(1. / num_neg)
         dataset = torch.utils.data.ConcatDataset(datasets)
         print(f"elapsed time for preprocess = {time.time() - start_time: .1f} sec")
         return dataset#, num_samples, num_pos, num_neg, weight
