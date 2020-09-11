@@ -1,7 +1,7 @@
 import wfdb
 import numpy as np
-from sklearn.preprocessing import scale
-import glob, os
+import glob
+import os
 from typing import List
 import math
 import time
@@ -13,6 +13,16 @@ OVERLAP = 95
 
 
 class Beat:
+    """
+    Class that represents a single Beat
+
+    :param start_index:
+    :param end_index:
+    :param p_signal: p_signals from the file record
+    :param symbol: label of the beat. i.e "N" , "AFib" ...
+    :param index: index of beat in the file
+    :param annotation: label of the beat
+    """
     def __init__(self,
                  start_index: int,
                  end_index: int,
@@ -27,20 +37,28 @@ class Beat:
         self.index = index
         self.annotation = annotation
 
-class DataProcessor():
-    def __init__(self, input_dir, processed_data_dir, overlap):
+
+class DataProcessor:
+    def __init__(self, input_dir, overlap, seq_size):
+        """
+        Class that does the data preprocessing from MIT BIH AF db.
+        receives path to files from the db and returns the data processed into RR intervals and labeled
+
+        :param input_dir: path to files from db
+        :param overlap: overlap between adjacent sequences
+        :param seq_size: number of beats in a sequence
+        """
         self.input_dir = input_dir
-        # if not os.path.isdir(processed_data_dir):
-        #     os.mkdir(processed_data_dir)
-        
         self.overlap = overlap
+        self.seq_size = seq_size
 
-        # self.processed_data_dir = os.path.join(processed_data_dir,"overlap_{}".format(overlap))
-        # if not os.path.isdir(self.processed_data_dir):
-        #     os.mkdir(self.processed_data_dir)
+    def get_beat_list_from_ecg_data(self, datfile) -> List[Beat]:
+        """
+        Given a file name, splits the data to RR intervals and saves a Beat list of the data
 
-    def get_beat_list_from_ecg_data(self, datfile):
-        # from given datfile name, splits to RR intervals and save the data on Beat list
+        :param datfile: path to data file
+        :return: list of type beat holding beats from file ordered chronology
+        """
         recordpath = datfile.split(".dat")[0]
         record = wfdb.rdsamp(recordpath)
         annotation_atr = wfdb.rdann(recordpath, extension='atr', sampfrom=0, sampto=None)
@@ -51,9 +69,16 @@ class DataProcessor():
         beats_list = self.get_RR_intervals(Vctrecord, annotation_qrs, annotation_atr)
         return beats_list
 
-
+    @staticmethod
     def get_RR_intervals(self, p_signals, annotation_qrs, annotation_atr) -> List[Beat]:
-        # split the file data into RR intervals
+        """
+        Splits the data into RR intervals
+
+        :param p_signals: p_signals from the file record
+        :param annotation_qrs: data from qrs file - beat data
+        :param annotation_atr: data from atr file - rhythm data
+        :return beats_list: list of type beat holding beats from file ordered chronology
+        """
         # TODO : need to decide if we eliminate "bad" signals (annotation_qrs.symbol not N)
         start = 0
         atr_pointer = 0
@@ -66,21 +91,26 @@ class DataProcessor():
                         annotation = 1
                     atr_pointer += 1
             beat = Beat(start, end, p_signals[start:end], annotation_qrs.symbol[i], i, annotation)
-            # if annotation_qrs.sample[i] == 8775761:
-            #     a=0
             beats_list.append(beat)
             start = end
         return beats_list
 
-    def split_to_beat(self, beats_list, seq_size, overlap):
-        # create a single beat
-        dim_0_size = math.ceil((len(beats_list) - 5000) / (seq_size - overlap))
+    def split_to_beat(self, beats_list):
+        """
+        Creates a tensor holding the RR intervals of the beats
+
+        :param beats_list: list[Beat] of the data
+        :return xx: tensor of shape (N, S, B, 2) holding the RR intervals of the data
+         N: number of sequences, S: seq_size, B: beat_size
+        :return yy: tensor of shape (N, 1) holding the labeling of the data
+        """
+        dim_0_size = math.ceil((len(beats_list) - 5000) / (self.seq_size - self.overlap))
         dim_0_counter = 0
-        xx = np.zeros((dim_0_size, seq_size, BEAT_SIZE, 2))
+        xx = np.zeros((dim_0_size, self.seq_size, BEAT_SIZE, 2))
         yy = np.zeros((dim_0_size, 1))
-        for j in range(0, len(beats_list) - 5000, seq_size - overlap):
+        for j in range(0, len(beats_list) - 5000, self.seq_size - self.overlap):
             y = 0
-            for i in range(seq_size):
+            for i in range(self.seq_size):
                 data = beats_list[j + i].p_signal
                 # TODO : deal with big beats.. what do we do now??
                 min_input = min(BEAT_SIZE, data.shape[0])
@@ -90,18 +120,14 @@ class DataProcessor():
             yy[dim_0_counter] = y
             dim_0_counter += 1
 
-            # try:
-            # xx = np.vstack((xx, [padded]))
-            # yy = np.vstack((yy, [y]))
-            # except UnboundLocalError:  ## on init
-            # xx = [padded]
-            # yy = [y]
-
         return xx, yy
 
-
     def get_data(self):
-        # qtdbpath = "C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\small_files"
+        """
+        Processes the data from self.input_dir and returns a dataset
+
+        :return dataset: dataset type torch.utils.data.ConcatDataset
+        """
         datfiles = glob.glob(os.path.join(self.input_dir, "*.dat"))
         start_time = time.time()
         datasets, weight = [], []
@@ -111,64 +137,23 @@ class DataProcessor():
             qf = os.path.splitext(datfile)[0] + '.atr'
             if os.path.isfile(qf):
                 beats_list = self.get_beat_list_from_ecg_data(datfile)
-                x, y = self.split_to_beat(beats_list, SEQ_SIZE, OVERLAP)
-                yy = y
+                x, y = self.split_to_beat(beats_list)
                 x = torch.tensor(x, dtype=torch.float32)
-                x = torch.flatten(x, start_dim=2)  # TODO: maybe flatten differnetly - do first column then second column (and not first second first second..)
+                # TODO: maybe flatten differently - do first col then second col (and not first second first second..)
+                x = torch.flatten(x, start_dim=2)
                 y = torch.tensor(y, dtype=torch.float32)
                 num_samples += x.shape[0]
-                # num_pos += len([i for i in y if i == 1])
-                # num_neg += len([i for i in y if i == 0])
                 # TODO : consider normalization of x
                 datasets.append(torch.utils.data.TensorDataset(x, y))
-                # try:  # concat
-                #     labels = np.vstack((labels, yy))
-                # except UnboundLocalError:  # if xx does not exist yet (on init)
-                #     labels = yy
-        # for label in labels:
-        #     if label == 1:
-        #         weight.append(1. / num_pos)
-        #     else:
-        #         weight.append(1. / num_neg)
+
         dataset = torch.utils.data.ConcatDataset(datasets)
         print(f"elapsed time for preprocess = {time.time() - start_time: .1f} sec")
-        return dataset#, num_samples, num_pos, num_neg, weight
+        return dataset
 
-
-
-
-# def split_to_seq(self, beats_list, seq_size, overlap):
-    #     num_big_data = 0
-    #     for j in range(0, len(beats_list) - 5000, seq_size-overlap):
-    #         padded = np.zeros((BEAT_SIZE * seq_size, 2))
-    #         last_idx = 0
-    #         y = 0
-    #         for i in range(j, j+seq_size):
-    #             if beats_list[i].annotation == 1:
-    #                 y = 1
-    #             data = beats_list[i].p_signal
-    #             # this is to check that we made enough space for all the data
-    #             if last_idx + data.shape[0] > BEAT_SIZE * seq_size:
-    #                 a=0
-    #             if data.shape[0] > 250:
-    #                 num_big_data += 1
-    #             padded[last_idx:last_idx+data.shape[0], :] = data
-    #             last_idx = data.shape[0] + last_idx
-    #             assert last_idx < BEAT_SIZE * seq_size
-
-    #             # TODO : decide if we need this line:
-    #             # padded = np.expand_dims(padded, 0)  ## add one dimension; so that you get shape (samples,timesteps,features)
-
-    #         try:
-    #             xx = np.vstack((xx, [padded]))
-    #             yy = np.vstack((yy, [y]))
-    #         except UnboundLocalError:  ## on init
-    #             xx = [padded]
-    #             yy = [y]
-
-    #     print("output: ", xx.shape)
-    #     return xx, yy
 
 if __name__ == '__main__':
-    xx, yy = get_data()
+    files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
+    files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files\\tmp'
 
+    processor = DataProcessor(files_dir, OVERLAP, SEQ_SIZE)
+    dataset = processor.get_data()

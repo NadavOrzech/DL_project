@@ -1,6 +1,6 @@
 import torch.utils.data
 import torch
-from data_preprocess import  SEQ_SIZE, OVERLAP
+from data_preprocess import SEQ_SIZE, OVERLAP
 from data_preprocess import DataProcessor
 BATCH_SIZE = 4
 TRAIN_TEST_RATIO = 0.9
@@ -9,11 +9,8 @@ TRAIN_TEST_RATIO = 0.9
 def get_dataloader():
     files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
     files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files\\tmp'
-    
-    processed_data_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\processed_data'
-    processed_data_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\proccesed_data\\tmp'
-    
-    processor = DataProcessor(files_dir,processed_data_dir,OVERLAP)
+
+    processor = DataProcessor(files_dir, OVERLAP, SEQ_SIZE)
     dataset = processor.get_data()
     
     dataset_size = len(dataset)
