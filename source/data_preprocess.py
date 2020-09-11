@@ -146,11 +146,14 @@ class DataProcessor():
                 x = torch.flatten(x, start_dim=2)
                 y = torch.tensor(y, dtype=torch.float32)
                 num_samples += x.shape[0]
+                print(f"number of saquences: {x.shape[0]}")
                 # TODO : consider normalization of x
                 datasets.append(torch.utils.data.TensorDataset(x, y))
 
         dataset = torch.utils.data.ConcatDataset(datasets)
         print(f"elapsed time for preprocess = {time.time() - start_time: .1f} sec")
+        print(f"total number of sequences: {num_samples}")
+
         return dataset
 
 
