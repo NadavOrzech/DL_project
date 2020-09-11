@@ -7,8 +7,8 @@ TRAIN_TEST_RATIO = 0.9
 
 
 def get_dataloader():
-    files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
-    files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files\\tmp'
+    files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\small_files'
+    # files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files\\tmp'
 
     processor = DataProcessor(files_dir, OVERLAP, SEQ_SIZE)
     dataset = processor.get_data()
@@ -30,12 +30,11 @@ def get_dataloader():
         samples_weight.append(weight[t])
 
     samples_weight = torch.tensor(samples_weight)
-    samples_weigth = samples_weight.double()
+    # samples_weigth = samples_weight.double()
     weighted_sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
     
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=BATCH_SIZE, sampler=weighted_sampler,
                                                    shuffle=False, drop_last=True)
-
 
     test_sampler = torch.utils.data.SequentialSampler(ds_test)
     test_dataloader = torch.utils.data.DataLoader(ds_test, batch_size=BATCH_SIZE, sampler=test_sampler,

@@ -5,15 +5,23 @@ import torch.optim as optim
 from data_loader import get_dataloader
 from data_preprocess import BEAT_SIZE, OVERLAP
 
-INPUT_SIZE = (100, 4, BEAT_SIZE*2)
 HIDDEN_SIZE = 400
 BATCH_SIZE = 4
 BEATS = BEAT_SIZE*2
 NUM_EPOCHS = 4
 DROPOUT = 0.5
 
+
 class LSTM(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim=2, num_layers=1):
+        """
+        Custom Bidirectional LSTM module
+
+        :param input_dim:
+        :param hidden_dim:
+        :param output_dim:
+        :param num_layers:
+        """
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -50,7 +58,6 @@ class LSTM(nn.Module):
                 y_pred_log_proba = self.forward(X)
                 last_output = y_pred_log_proba[-1]  # should be of size (N,C) {C is num_classes}
                 y = torch.squeeze(y).long()         # should be of size (N,)
-                # last_output = torch.squeeze(last_output).long()
 
                 # Backward pass
                 optimizer.zero_grad()
@@ -70,15 +77,13 @@ class LSTM(nn.Module):
                 fn_tot += fn
                 num_correct += torch.sum(y_pred == y).float().item()
                 total_samp = tp_tot + tn_tot + fp_tot + fn_tot
-                # if batch_idx == max_batches - 1:
-                #     break
+
 
             print(
                 f"Epoch #{epoch_idx}, loss={total_loss / (total_samp / BATCH_SIZE):.3f}, accuracy={num_correct / total_samp:.3f}, elapsed={time.time() - start_time:.1f} sec")
             print(f"tp: {tp_tot}, fp: {fp_tot}, tn: {tn_tot}, fn: {fn_tot}")
             print(f"Positive accuracy: {tp_tot / (tp_tot + fn_tot)}")
             print(f"Negative accuracy: {tn_tot / (tn_tot + fp_tot)}")
-
 
     def test(self, loss_fn, dataloader, max_epochs=4, max_batches=200):
         print(f"{'-'*20}Starting testing with overlap {OVERLAP}{'-'*20}")
@@ -115,19 +120,8 @@ class LSTM(nn.Module):
             print(f"Positive accuracy: {tp_tot / (tp_tot + fn_tot)}")
         print(f"Negative accuracy: {tn_tot / (tn_tot + fp_tot)}")
 
-
-# def get_model():
-#     model = nn.Sequential(
-#         nn.LSTM(input_size=BEATS, hidden_size=HIDDEN_SIZE, num_layers=1, bidirectional=True),
-#         nn.MaxPool1d(kernel_size=2),
-#         nn.ReLU(),
-#         nn.Dropout(p=DROPOUT),
-#         nn.Sigmoid(),
-#     )
-#     return model
-
-
-    def calculate_acc(self, y_pred, y):
+    @staticmethod
+    def calculate_acc( y_pred, y):
         tp, fp, tn, fn = 0, 0, 0, 0
         for i in range(y_pred.shape[0]):
             if y_pred[i] == 0:

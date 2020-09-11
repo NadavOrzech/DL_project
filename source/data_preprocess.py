@@ -9,7 +9,7 @@ import torch.utils.data
 
 BEAT_SIZE = 250
 SEQ_SIZE = 100
-OVERLAP = 95
+OVERLAP = 0
 
 
 class Beat:
@@ -70,7 +70,7 @@ class DataProcessor:
         return beats_list
 
     @staticmethod
-    def get_RR_intervals(self, p_signals, annotation_qrs, annotation_atr) -> List[Beat]:
+    def get_RR_intervals(p_signals, annotation_qrs, annotation_atr) -> List[Beat]:
         """
         Splits the data into RR intervals
 
