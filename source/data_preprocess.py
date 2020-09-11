@@ -7,12 +7,14 @@ import math
 import time
 import torch.utils.data
 
-BEAT_SIZE = 250
-SEQ_SIZE = 100
-OVERLAP = 0
+# from config import Config
+
+# BEAT_SIZE = 250
+# SEQ_SIZE = 100
+# OVERLAP = 0
 
 
-class Beat:
+class Beat():
     """
     Class that represents a single Beat
 
@@ -38,8 +40,8 @@ class Beat:
         self.annotation = annotation
 
 
-class DataProcessor:
-    def __init__(self, input_dir, overlap, seq_size):
+class DataProcessor():
+    def __init__(self, input_dir, overlap, seq_size, beat_size):
         """
         Class that does the data preprocessing from MIT BIH AF db.
         receives path to files from the db and returns the data processed into RR intervals and labeled
@@ -51,6 +53,7 @@ class DataProcessor:
         self.input_dir = input_dir
         self.overlap = overlap
         self.seq_size = seq_size
+        self.beat_size = beat_size
 
     def get_beat_list_from_ecg_data(self, datfile) -> List[Beat]:
         """
@@ -106,14 +109,14 @@ class DataProcessor:
         """
         dim_0_size = math.ceil((len(beats_list) - 5000) / (self.seq_size - self.overlap))
         dim_0_counter = 0
-        xx = np.zeros((dim_0_size, self.seq_size, BEAT_SIZE, 2))
+        xx = np.zeros((dim_0_size, self.seq_size, self.beat_size, 2))
         yy = np.zeros((dim_0_size, 1))
         for j in range(0, len(beats_list) - 5000, self.seq_size - self.overlap):
             y = 0
             for i in range(self.seq_size):
                 data = beats_list[j + i].p_signal
                 # TODO : deal with big beats.. what do we do now??
-                min_input = min(BEAT_SIZE, data.shape[0])
+                min_input = min(self.beat_size, data.shape[0])
                 xx[dim_0_counter, i, :min_input, :] = data[:min_input, :]
                 if beats_list[j + i].annotation == 1:
                     y = 1

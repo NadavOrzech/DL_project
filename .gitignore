@@ -11,3 +11,6 @@ source/.idea/workspace.xml
 Figure_1.png
 source/.idea/workspace.xml
 source/.idea/workspace.xml
+*.pyc
+*.xml
+*.pyc
