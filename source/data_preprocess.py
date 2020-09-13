@@ -146,7 +146,7 @@ class DataProcessor():
                 x = torch.flatten(x, start_dim=2)
                 y = torch.tensor(y, dtype=torch.float32)
                 num_samples += x.shape[0]
-                print(f"number of saquences: {x.shape[0]}")
+                print(f"number of sequences: {x.shape[0]}")
                 # TODO : consider normalization of x
                 datasets.append(torch.utils.data.TensorDataset(x, y))
 

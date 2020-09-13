@@ -1,9 +1,9 @@
 
 class Config():
     def __init__(self):
-        self.beat_size = 250
+        self.beat_size = 200
         self.seq_size = 100
-        self.overlap = 30
+        self.overlap = 99
         self.train_test_ratio = 0.85
 
         self.hidden_dim = 400
