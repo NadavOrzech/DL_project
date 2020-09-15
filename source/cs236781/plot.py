@@ -80,7 +80,7 @@ def dataset_first_n(dataset, n, show_classes=False, class_labels=None,
     return tensors_as_images(first_n_images, titles=titles, **kw)
 
 
-def plot_fit(fit_res: FitResult, fig=None, log_loss=False, legend=None):
+def plot_fit(fit_res: FitResult,output_name, fig=None, log_loss=False, legend=None):
     """
     Plots a FitResult object.
     Creates four plots: train loss, test loss, train acc, test acc.
@@ -122,6 +122,6 @@ def plot_fit(fit_res: FitResult, fig=None, log_loss=False, legend=None):
         if legend:
             ax.legend()
         ax.grid(True)
-    plt.show()
+    plt.savefig(output_name)
 
     return fig, axes

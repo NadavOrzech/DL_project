@@ -4,6 +4,7 @@ import time
 import sys
 import tqdm
 
+import sklearn
 from cs236781.train_results import BatchResult, EpochResult, FitResult
 from torch.utils.data import DataLoader
 
@@ -290,10 +291,23 @@ class AttentionModel(BaselineModel):
         y_pred = self.linear(att_output)
         return y_pred
 
-# if __name__ == '__main__':
-#     train_dataloader, test_dataloader = get_dataloader()
-#     model = LSTM(input_dim=BEATS, hidden_dim=HIDDEN_SIZE)
-#     loss_fn = nn.CrossEntropyLoss()
-#     optimizer = optim.Adam(model.parameters(), lr=1e-3)
-#     model.train(optimizer, loss_fn, train_dataloader, max_epochs=NUM_EPOCHS)
-#     model.test(loss_fn, test_dataloader, max_epochs=NUM_EPOCHS)
+
+def cross_validation(train_set,k_folds):
+    kf = sklearn.model_selection.KFold(n_splits=k_folds)
+    # params_grid = {'bostonfeaturestransformer__degree': degree_range, 'linearregressor__reg_lambda': lambda_range}
+    min_acc = np.inf
+
+    for params in list(sklearn.model_selection.ParameterGrid(params_grid)):
+        model.set_params(**params)
+        curr_acc = 0
+        for train_idx, test_idx in kf.split(X):
+            train_x, train_y = X[train_idx], y[train_idx]
+            test_x, test_y = X[test_idx], y[test_idx]
+            model.fit(train_x, train_y)
+            y_pred = model.predict(test_x)
+            curr_acc += mse_score(test_y, y_pred)
+        mean = curr_acc/k_folds
+        if mean < min_acc:
+            min_acc=mean
+            best_params = params
+
