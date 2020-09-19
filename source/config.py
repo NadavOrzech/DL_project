@@ -12,7 +12,7 @@ class Config():
         self.lr = 1e-3
 
         self.batch_size = 4
-        self.num_epochs = 10
+        self.num_epochs = 2
         self.early_stopping = 2
 
         # self.files_dir = '/Users/roenglen/Documents/files'

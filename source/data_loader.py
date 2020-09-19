@@ -4,10 +4,11 @@ from data_preprocess import DataProcessor
 
 
 class BaseDataloader():
-    def __init__(self, config):
+    def __init__(self, config, dataset):
         self.files_dir = config.files_dir
-        self.processor = DataProcessor(config.files_dir, config.overlap, config.seq_size, config.beat_size)
-        self.dataset = self.processor.get_data()
+        # self.processor = DataProcessor(config.files_dir, config.overlap, config.seq_size, config.beat_size)
+        # self.dataset = self.processor.get_data()
+        self.dataset = dataset
         self.dataset_size = len(self.dataset)
         self.train_test_ratio = config.train_test_ratio
         self.batch_size = config.batch_size
@@ -31,8 +32,8 @@ class BaseDataloader():
         return test_dataloader
 
 class WeightedDataLoader(BaseDataloader):
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, dataset):
+        super().__init__(config, dataset)
 
     def get_train_dataloader(self):
         """
@@ -62,7 +63,4 @@ class WeightedDataLoader(BaseDataloader):
 
 
         return train_dataloader
-
-
-
 

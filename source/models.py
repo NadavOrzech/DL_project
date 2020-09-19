@@ -7,6 +7,7 @@ import tqdm
 import sklearn
 from cs236781.train_results import BatchResult, EpochResult, FitResult
 from torch.utils.data import DataLoader
+# from data_preprocess import DataProcessor
 
 import torch.optim as optim
 # from data_loader import get_dataloader
@@ -74,6 +75,7 @@ class BaselineModel(nn.Module):
         :return: A FitResult object containing train and test losses per epoch.
         """
         train_loss, train_acc, test_loss, test_acc = [], [], [], []
+        train_pos_acc, train_neg_acc,test_pos_acc, test_neg_acc = [], [], [], []
         best_acc = None
         epochs_without_improvement = 0
         print(f"{'-'*20}Starting training with overlap {self.overlap}{'-'*20}")
@@ -98,7 +100,13 @@ class BaselineModel(nn.Module):
             test_loss.append(sum(res_test[0]) / len(res_test[0]))
             test_acc.append(res_test[1])
 
-        return FitResult(max_epochs, train_loss, train_acc, test_loss, test_acc)
+            train_pos_acc.append(res_train[2])
+            train_neg_acc.append(res_train[3])
+            test_pos_acc.append(res_test[2])
+            test_neg_acc.append(res_test[3])
+
+
+        return FitResult(max_epochs, train_loss, train_acc, test_loss, test_acc, train_pos_acc, train_neg_acc, test_pos_acc, test_neg_acc)
 
     def train_epoch(self, optimizer, loss_fn, dataloader):
         """
@@ -109,6 +117,7 @@ class BaselineModel(nn.Module):
         :return: An EpochResult for the epoch.
         """
         train_loss, train_acc, losses = [], [], []
+        pos_accuracy, neg_accuracy = [], []
         total_loss, num_correct = 0, 0
         start_time = time.time()
         tp_tot, fp_tot, tn_tot, fn_tot = 0, 0, 0, 0
@@ -153,6 +162,10 @@ class BaselineModel(nn.Module):
             accuracy = 100. * num_correct / total_samp
             train_loss.append(sum(losses) / len(losses))
             train_acc.append(accuracy)
+            pos = 0 if tp+fn==0 else 100. * tp/(tp+fn)
+            neg = 0 if tn+fp==0 else 100. * tn/(tn+fp)
+            pos_accuracy.append(pos)
+            neg_accuracy.append(neg)
 
         # print(
         #     f"train_batch: loss={total_loss / (total_samp / self.batch_size):.3f}, accuracy={num_correct / total_samp:.3f}, elapsed={time.time() - start_time:.1f} sec")
@@ -160,7 +173,7 @@ class BaselineModel(nn.Module):
         print(f"Pos acc: {tp_tot / (tp_tot + fn_tot):.3f},  Neg acc: {tn_tot / (tn_tot + fp_tot):.3f}")
         print('---')
 
-        return EpochResult(train_loss, train_acc)
+        return EpochResult(train_loss, train_acc, pos_accuracy, neg_accuracy)
 
     def test_epoch(self, loss_fn, dataloader):
         """
@@ -170,6 +183,7 @@ class BaselineModel(nn.Module):
         :return: An EpochResult for the epoch.
         """
         test_loss, test_acc, losses = [], [], []
+        pos_accuracy, neg_accuracy = [], []
         total_loss, num_correct = 0, 0
         start_time = time.time()
         tp_tot, fp_tot, tn_tot, fn_tot = 0, 0, 0, 0
@@ -209,13 +223,17 @@ class BaselineModel(nn.Module):
             accuracy = 100. * num_correct / total_samp
             test_loss.append(sum(losses) / len(losses))
             test_acc.append(accuracy)
+            pos = 0 if tp+fn==0 else 100. * tp/(tp+fn)
+            neg = 0 if tn+fp==0 else 100. * tn/(tn+fp)
+            pos_accuracy.append(pos)
+            neg_accuracy.append(neg)
         # print(
         #     f"test_batch: loss={total_loss / (total_samp / self.batch_size):.3f}, accuracy={num_correct / total_samp:.3f}, elapsed={time.time() - start_time:.1f} sec")
         print(f"accuracy={num_correct / total_samp:.3f}, tp: {tp_tot}, fp: {fp_tot}, tn: {tn_tot}, fn: {fn_tot}")
         if tp_tot + fn_tot > 0:
             print(f"Pos acc: {tp_tot / (tp_tot + fn_tot):.3f},  Neg acc: {tn_tot / (tn_tot + fp_tot):.3f}")
 
-        return EpochResult(test_loss, test_acc)
+        return EpochResult(test_loss, test_acc, pos_accuracy, neg_accuracy)
 
     @staticmethod
     def calculate_acc(y_pred, y):
@@ -292,20 +310,26 @@ class AttentionModel(BaselineModel):
         return y_pred
 
 
-def cross_validation(train_set,k_folds):
+def cross_validation(model,train_set,k_folds):
     kf = sklearn.model_selection.KFold(n_splits=k_folds)
     # params_grid = {'bostonfeaturestransformer__degree': degree_range, 'linearregressor__reg_lambda': lambda_range}
     min_acc = np.inf
+    lr_list = [1e-3, 1e-1, 1e-5]
+    loss_fn = nn.CrossEntropyLoss()
 
-    for params in list(sklearn.model_selection.ParameterGrid(params_grid)):
-        model.set_params(**params)
+    for lr in lr_list:
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+        
         curr_acc = 0
-        for train_idx, test_idx in kf.split(X):
+        for train_idx, valid_idx in kf.split(train_set):
             train_x, train_y = X[train_idx], y[train_idx]
-            test_x, test_y = X[test_idx], y[test_idx]
-            model.fit(train_x, train_y)
-            y_pred = model.predict(test_x)
-            curr_acc += mse_score(test_y, y_pred)
+            valid_x, valid_y = X[valid_idx], y[valid_idx]
+            
+
+
+            fit_results = model.fit(train_x, train_y)
+            # y_pred = model.predict(valid_x)
+            # curr_acc += mse_score(valid_y, y_pred)
         mean = curr_acc/k_folds
         if mean < min_acc:
             min_acc=mean

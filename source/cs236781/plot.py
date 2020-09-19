@@ -117,6 +117,14 @@ def plot_fit(fit_res: FitResult,output_name, fig=None, log_loss=False, legend=No
                 ax.set_yscale('log')
                 ax.set_ylabel('Loss (log)')
         else:
+            pos_attr = f'{traintest}_pos_acc'
+            neg_attr = f'{traintest}_neg_acc'
+            data_pos = getattr(fit_res, pos_attr)
+            data_neg = getattr(fit_res, neg_attr)
+
+            h_pos = ax.plot(np.arange(1, len(data) + 1), data_pos, label='pos')
+            h_neg = ax.plot(np.arange(1, len(data) + 1), data_neg, label='neg')
+            
             ax.set_xlabel('Epoch #')
             ax.set_ylabel('Accuracy (%)')
         if legend:
