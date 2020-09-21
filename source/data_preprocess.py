@@ -6,6 +6,8 @@ from typing import List
 import math
 import time
 import torch.utils.data
+import bisect
+
 
 # from config import Config
 
@@ -111,6 +113,7 @@ class DataProcessor():
         dim_0_counter = 0
         xx = np.zeros((dim_0_size, self.seq_size, self.beat_size, 2))
         yy = np.zeros((dim_0_size, 1))
+        zz = np.zeros((dim_0_size, self.seq_size))
         for j in range(0, len(beats_list) - 5000, self.seq_size - self.overlap):
             y = 0
             for i in range(self.seq_size):
@@ -118,12 +121,13 @@ class DataProcessor():
                 # TODO : deal with big beats.. what do we do now??
                 min_input = min(self.beat_size, data.shape[0])
                 xx[dim_0_counter, i, :min_input, :] = data[:min_input, :]
+                zz[dim_0_counter, i] = int(beats_list[j + i].annotation)
                 if beats_list[j + i].annotation == 1:
                     y = 1
             yy[dim_0_counter] = y
             dim_0_counter += 1
 
-        return xx, yy
+        return xx, yy, zz
 
     def get_data(self):
         """
@@ -134,13 +138,14 @@ class DataProcessor():
         datfiles = glob.glob(os.path.join(self.input_dir, "*.dat"))
         start_time = time.time()
         datasets, weight = [], []
+        seq_datasets = []
         num_samples, num_pos, num_neg = 0, 0, 0
         for i, datfile in enumerate(datfiles):
             print("Starting file num: {}/{}".format(i+1, len(datfiles)))
             qf = os.path.splitext(datfile)[0] + '.atr'
             if os.path.isfile(qf):
                 beats_list = self.get_beat_list_from_ecg_data(datfile)
-                x, y = self.split_to_beat(beats_list)
+                x, y, z = self.split_to_beat(beats_list)
                 x = torch.tensor(x, dtype=torch.float32)
                 # TODO: maybe flatten differently - do first col then second col (and not first second first second..)
                 x = torch.flatten(x, start_dim=2)
@@ -149,12 +154,35 @@ class DataProcessor():
                 print(f"number of sequences: {x.shape[0]}")
                 # TODO : consider normalization of x
                 datasets.append(torch.utils.data.TensorDataset(x, y))
+                seq_datasets.append((z))
 
-        dataset = torch.utils.data.ConcatDataset(datasets)
+        dataset = IndicesDataset(datasets)
+        # dataset = torch.utils.data.ConcatDataset(datasets)
+        seq_dataset = torch.utils.data.ConcatDataset(seq_datasets)
+
         print(f"elapsed time for preprocess = {time.time() - start_time: .1f} sec")
         print(f"total number of sequences: {num_samples}")
 
-        return dataset
+        return dataset,seq_dataset
+
+
+class IndicesDataset(torch.utils.data.ConcatDataset):
+    def __init__(self, datasets):
+        super().__init__(datasets=datasets)
+
+    def __getitem__(self, idx):
+        if idx < 0:
+            if -idx > len(self):
+                raise ValueError("absolute value of index should not exceed dataset length")
+            idx = len(self) + idx
+        dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
+        if dataset_idx == 0:
+            sample_idx = idx
+        else:
+            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+        
+        return self.datasets[dataset_idx][sample_idx], idx
+
 
 
 if __name__ == '__main__':

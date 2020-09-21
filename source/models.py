@@ -3,15 +3,17 @@ import torch.nn as nn
 import time
 import sys
 import tqdm
+import os
 
 import sklearn
-from cs236781.train_results import BatchResult, EpochResult, FitResult
+from cs236781.train_results import BatchResult, EpochResult, FitResult, EpochHeatMap
 from torch.utils.data import DataLoader
 # from data_preprocess import DataProcessor
 
 import torch.optim as optim
 # from data_loader import get_dataloader
 # from data_preprocess import BEAT_SIZE, OVERLAP
+import matplotlib.pyplot as plt
 
 # HIDDEN_SIZE = 400
 # BATCH_SIZE = 4
@@ -21,7 +23,7 @@ import torch.optim as optim
 
 
 class BaselineModel(nn.Module):
-    def __init__(self, config, device, output_dim=2, num_layers=1):
+    def __init__(self, config, device, output_dim=2, num_layers=1,checkpoint_file=None):
         """
         Custom Bidirectional LSTM module
 
@@ -38,6 +40,14 @@ class BaselineModel(nn.Module):
         self.overlap = config.overlap
         self.batch_size = config.batch_size
         self.device = device
+        self.checkpoint_file = None
+
+        if checkpoint_file is not None:
+            checkpoint_dir = os.path.join('.', 'checkpoints')
+            if not os.path.isdir(checkpoint_dir):
+                os.mkdir(checkpoint_dir)
+            self.checkpoint_file=os.path.join(checkpoint_dir, checkpoint_file)
+            # os.makedirs(os.path.dirname(checkpoint_file), exist_ok=True)
 
         self.lstm = nn.LSTM(input_size=self.input_dim, hidden_size=self.hidden_dim, num_layers=self.num_layers, bidirectional=True)
         self.max_pool = nn.MaxPool1d(kernel_size=config.seq_size)
@@ -50,6 +60,30 @@ class BaselineModel(nn.Module):
             nn.Sigmoid()
         )
         # TODO: do we need to initialize the hidden dims?
+
+
+    def save_checkpoint(self, epoch, best_acc,heatmap):
+        lstm_params = self.lstm.state_dict()
+        linear_params = self.linear.state_dict()
+        data = dict(
+            lstm_params=lstm_params,
+            linear_params= linear_params,
+            best_acc=best_acc,
+            epoch=epoch,
+            heatmap=heatmap
+
+        )
+        torch.save(data, self.checkpoint_file)
+
+    def load_checkpoint(self):
+        print(f'=== Loading checkpoint {self.checkpoint_file}, ', end='')
+        data = torch.load(self.checkpoint_file)
+        self.lstm.load_state_dict(data['lstm_params'])
+        self.linear.load_state_dict(data['linear_params'])
+        print(f'best_accuracy={data["best_acc"]:.2f}')
+        return data['epoch'], data['best_acc'], data['heatmap']
+
+
 
     def forward(self, input):
         lstm_out, (h_n, c_n) = self.lstm(input)
@@ -79,21 +113,34 @@ class BaselineModel(nn.Module):
         best_acc = None
         epochs_without_improvement = 0
         print(f"{'-'*20}Starting training with overlap {self.overlap}{'-'*20}")
-        for epoch_idx in range(max_epochs):
+
+        i=0
+        epoch_idx=0
+        if self.checkpoint_file and os.path.isfile(self.checkpoint_file):
+            i, best_acc, heat_map_test = self.load_checkpoint()
+            
+        for epoch_idx in range(i,max_epochs):
             print(f'--- EPOCH {epoch_idx + 1}/{max_epochs} ---')
             res_train = self.train_epoch(optimizer, loss_fn, dl_train,)
-            res_test = self.test_epoch(loss_fn, dl_test)
+            
+            # last_epoch = False
+            # if epoch_idx == max_epochs-1:
+            #     last_epoch=True
+            
+            res_test, heat_map_test = self.test_epoch(loss_fn, dl_test,True)
 
             if early_stopping is not None:
                 if best_acc is None:
-                    best_acc = res_test[1]
-                elif res_test[1] <= best_acc:
+                    best_acc = res_test[1][-1]
+                elif res_test[1][-1] <= best_acc:
                     epochs_without_improvement += 1
                     if epochs_without_improvement >= early_stopping:
                         break
                 else:
                     epochs_without_improvement = 0
                     best_acc = res_test[1]
+                    if self.checkpoint_file is not None:
+                        self.save_checkpoint(epoch_idx+1, best_acc,heat_map_test)
 
             train_loss.append(sum(res_train[0]) / len(res_train[0]))
             train_acc.append(res_train[1])
@@ -105,8 +152,12 @@ class BaselineModel(nn.Module):
             test_pos_acc.append(res_test[2])
             test_neg_acc.append(res_test[3])
 
+        if self.checkpoint_file is not None:
+            if best_acc == None: best_acc=res_test[1][-1]
+            self.save_checkpoint(epoch_idx+1, best_acc,heat_map_test)
 
-        return FitResult(max_epochs, train_loss, train_acc, test_loss, test_acc, train_pos_acc, train_neg_acc, test_pos_acc, test_neg_acc)
+
+        return FitResult(max_epochs, train_loss, train_acc, test_loss, test_acc, train_pos_acc, train_neg_acc, test_pos_acc, test_neg_acc), heat_map_test
 
     def train_epoch(self, optimizer, loss_fn, dataloader):
         """
@@ -126,7 +177,7 @@ class BaselineModel(nn.Module):
         num_batches = len(dataloader.batch_sampler)
         with tqdm.tqdm(desc=pbar_name, total=num_batches,
                        file=pbar_file) as pbar:
-            for batch_idx, batch in enumerate(dataloader):
+            for batch_idx, (batch,indices) in enumerate(dataloader):
                 X, y = batch[0], batch[1]
 
                 # Forward pass
@@ -175,7 +226,7 @@ class BaselineModel(nn.Module):
 
         return EpochResult(train_loss, train_acc, pos_accuracy, neg_accuracy)
 
-    def test_epoch(self, loss_fn, dataloader):
+    def test_epoch(self, loss_fn, dataloader, get_heatmap=False):
         """
         Evaluate model once over a test set (single epoch).
         :param loss_fn: The loss function to evaluate with.
@@ -184,6 +235,7 @@ class BaselineModel(nn.Module):
         """
         test_loss, test_acc, losses = [], [], []
         pos_accuracy, neg_accuracy = [], []
+        y_vals, attention_map, indices_list = [],[],[]
         total_loss, num_correct = 0, 0
         start_time = time.time()
         tp_tot, fp_tot, tn_tot, fn_tot = 0, 0, 0, 0
@@ -192,7 +244,7 @@ class BaselineModel(nn.Module):
         num_batches = len(dataloader.batch_sampler)
         with tqdm.tqdm(desc=pbar_name, total=num_batches,
                        file=pbar_file) as pbar:
-            for batch_idx, batch in enumerate(dataloader):
+            for batch_idx, (batch,indices) in enumerate(dataloader):
                 X, y = batch[0], batch[1]
 
                 # Forward pass    
@@ -200,7 +252,18 @@ class BaselineModel(nn.Module):
                     X = torch.transpose(X, dim0=0, dim1=1)
                     X = X.to(self.device)
                     y = y.to(self.device)
+                    # for i in y:
+                    #     y_vals.append(i.item())
                     y_pred_log_proba = self.forward(X)
+                    # for l in self.soft_attn_weights:
+                    #     attention_map.append(l)
+                    if get_heatmap:
+                        for i in range(4):
+                            y_vals.append(int(y[i].item()))
+                            attention_map.append(self.soft_attn_weights[i])
+                            indices_list.append(indices[i].item())
+
+
                     # last_output = y_pred_log_proba[-1]
                     y = torch.squeeze(y).long()
 
@@ -220,6 +283,19 @@ class BaselineModel(nn.Module):
                     pbar.update()
                     losses.append(loss.item())
 
+            # fig, axes = plt.subplots(ncols=2, sharex='col', sharey=False)
+            # axes[0].plot(y_vals,cmap='Greys', interpolation='nearest')
+            # axes[1].plot(attention_map,cmap='Greys', interpolation='nearest')
+            # plt.show()
+            
+            # ax1 = plt.subplot() 
+            # ax1.plot(y_vals) 
+            # plt.imshow(attention_map, cmap='Greys', interpolation='nearest')
+            # plt.show()
+            # ax2 = plt.subplot() 
+            # ax2.plot(attention_map)
+            # plt.show() 
+
             accuracy = 100. * num_correct / total_samp
             test_loss.append(sum(losses) / len(losses))
             test_acc.append(accuracy)
@@ -233,7 +309,7 @@ class BaselineModel(nn.Module):
         if tp_tot + fn_tot > 0:
             print(f"Pos acc: {tp_tot / (tp_tot + fn_tot):.3f},  Neg acc: {tn_tot / (tn_tot + fp_tot):.3f}")
 
-        return EpochResult(test_loss, test_acc, pos_accuracy, neg_accuracy)
+        return EpochResult(test_loss, test_acc, pos_accuracy, neg_accuracy), EpochHeatMap(y_vals, attention_map, indices_list)
 
     @staticmethod
     def calculate_acc(y_pred, y):
@@ -253,7 +329,7 @@ class BaselineModel(nn.Module):
         return tp, fp, tn, fn
 
 class AttentionModel(BaselineModel):
-    def __init__(self, config, device, output_dim=2, num_layers=1):
+    def __init__(self, config, device, output_dim=2, num_layers=1,checkpoint_file=None):
         """
         Custom Bidirectional LSTM module
 
@@ -261,7 +337,7 @@ class AttentionModel(BaselineModel):
         :param output_dim:
         :param num_layers:
         """
-        super().__init__(config,device,output_dim,num_layers)
+        super().__init__(config,device,output_dim,num_layers,checkpoint_file=checkpoint_file)
         self.linear = nn.Sequential(
             nn.Linear(in_features=self.hidden_dim*2, out_features=50),
             nn.ReLU(),
@@ -295,8 +371,13 @@ class AttentionModel(BaselineModel):
         """
         hidden = final_state.squeeze(0)
         attn_weights = torch.bmm(lstm_output, hidden.unsqueeze(2)).squeeze(2)
-        soft_attn_weights = nn.functional.softmax(attn_weights, 1)
-        new_hidden_state = torch.bmm(lstm_output.transpose(1, 2), soft_attn_weights.unsqueeze(2)).squeeze(2)
+        self.soft_attn_weights = nn.functional.softmax(attn_weights, 1)
+        new_hidden_state = torch.bmm(lstm_output.transpose(1, 2), self.soft_attn_weights.unsqueeze(2)).squeeze(2)
+
+        # plt.imshow(y.detach(), cmap='Greys', interpolation='nearest')
+        # plt.show()
+        # plt.imshow(self.soft_attn_weights.detach(), cmap='Greys', interpolation='nearest')
+        # plt.show()
 
         return new_hidden_state
 

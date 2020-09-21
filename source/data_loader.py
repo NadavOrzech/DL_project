@@ -52,7 +52,7 @@ class WeightedDataLoader(BaseDataloader):
 
         samples_weight = []
         for i in subset_idx:
-            t = int(self.dataset[i][1])
+            t = int(self.dataset[i][0][1])
             samples_weight.append(weight[t])
 
         samples_weight = torch.tensor(samples_weight)

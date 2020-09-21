@@ -4,6 +4,7 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 from .train_results import FitResult
+import seaborn as sns
 
 
 def tensors_as_images(tensors, nrows=1, figsize=(8, 8), titles=[],
@@ -133,3 +134,25 @@ def plot_fit(fit_res: FitResult,output_name, fig=None, log_loss=False, legend=No
     plt.savefig(output_name)
 
     return fig, axes
+
+def plot_attention_map(heatmap_res, dataset):
+    fig, ax =plt.subplots(1,2)
+
+    idx_range = 50
+
+    indices = heatmap_res[2][:idx_range]
+    y_vals = [dataset[i] for i in indices]
+    x_vals = [list(heatmap_res[1][i]) for i in range(idx_range)]
+    
+    sns.heatmap(x_vals, ax=ax[0])
+    sns.heatmap(y_vals, ax=ax[1])
+
+    # fig = plt.figure()
+    # ax1 = fig.add_subplot(211)
+    # ax2 = fig.add_subplot(212)
+    # sns.heatmap(data=x_list, ax=ax1)
+
+    plt.savefig('heatmap')
+
+    
+

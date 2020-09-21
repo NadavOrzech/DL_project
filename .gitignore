@@ -14,3 +14,7 @@ source/.idea/workspace.xml
 *.pyc
 *.xml
 *.pyc
+*.xml
+source/__pycache__/data_loader.cpython-37.pyc
+source/first_graph.png
+source/heatmap.png
