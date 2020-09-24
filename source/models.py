@@ -29,13 +29,13 @@ class BaselineModel(nn.Module):
         self.batch_size = config.batch_size
         self.device = device
         self.checkpoint_file = None
+        self.soft_attn_weights = torch.zeros(self.batch_size)  # initialized for generating Graphs for AttentionModel
 
         if checkpoint_file is not None:
             checkpoint_dir = os.path.join('.', 'checkpoints')
             if not os.path.isdir(checkpoint_dir):
                 os.mkdir(checkpoint_dir)
             self.checkpoint_file = os.path.join(checkpoint_dir, checkpoint_file)
-            # os.makedirs(os.path.dirname(checkpoint_file), exist_ok=True)
 
         self.lstm = nn.LSTM(input_size=self.input_dim, hidden_size=self.hidden_dim, num_layers=self.num_layers, bidirectional=True)
         self.max_pool = nn.MaxPool1d(kernel_size=config.seq_size)
@@ -92,12 +92,11 @@ class BaselineModel(nn.Module):
         :return: A FitResult object containing train and test losses per epoch.
         """
         train_loss, train_acc, test_loss, test_acc = [], [], [], []
-        train_pos_acc, train_neg_acc,test_pos_acc, test_neg_acc = [], [], [], []
+        train_pos_acc, train_neg_acc, test_pos_acc, test_neg_acc = [], [], [], []
         best_acc = None
         epochs_without_improvement = 0
         print(f"{'-'*20}Starting training with overlap {self.overlap}{'-'*20}")
 
-        # i, epoch_idx = 0, 0
         if self.checkpoint_file and os.path.isfile(self.checkpoint_file):
             best_acc, heat_map_test, fit_result = self.load_checkpoint()
             return fit_result, heat_map_test
@@ -106,7 +105,7 @@ class BaselineModel(nn.Module):
             print(f'--- EPOCH {epoch_idx + 1}/{max_epochs} ---')
             res_train = self.train_epoch(optimizer, loss_fn, dl_train,)
 
-            res_test, heat_map_test = self.test_epoch(loss_fn, dl_test,True)
+            res_test, heat_map_test = self.test_epoch(loss_fn, dl_test, True)
 
             if early_stopping is not None:
                 if best_acc is None:
@@ -118,8 +117,6 @@ class BaselineModel(nn.Module):
                 else:
                     epochs_without_improvement = 0
                     best_acc = res_test[1]
-                    # if self.checkpoint_file is not None:
-                    #     self.save_checkpoint(epoch_idx+1, best_acc,heat_map_test, res_train, res_test)
 
             train_loss.append(sum(res_train[0]) / len(res_train[0]))
             train_acc.append(res_train[1])
@@ -131,7 +128,8 @@ class BaselineModel(nn.Module):
             test_pos_acc.append(res_test[2])
             test_neg_acc.append(res_test[3])
 
-        fit_result = FitResult(max_epochs, train_loss, train_acc, test_loss, test_acc, train_pos_acc, train_neg_acc, test_pos_acc, test_neg_acc)
+        fit_result = FitResult(max_epochs, train_loss, train_acc, test_loss, test_acc, train_pos_acc, train_neg_acc,
+                               test_pos_acc, test_neg_acc)
 
         if self.checkpoint_file is not None:
             if best_acc is None: best_acc = res_test[1]
