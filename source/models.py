@@ -37,7 +37,7 @@ class BaselineModel(nn.Module):
                 os.mkdir(checkpoint_dir)
             self.checkpoint_file = os.path.join(checkpoint_dir, checkpoint_file)
 
-        self.lstm = nn.LSTM(input_size=self.input_dim, hidden_size=self.hidden_dim, num_layers=self.num_layers, bidirectional=True)
+        self.lstm = nn.LSTM(input_size=self.input_dim, hidden_size=self.hidden_dim, num_layers=self.num_layers, bidirectional=True, dropout=config.lstm_dropout)
         self.max_pool = nn.MaxPool1d(kernel_size=config.seq_size)
         self.linear = nn.Sequential(
             nn.Linear(in_features=self.hidden_dim*2, out_features=50),

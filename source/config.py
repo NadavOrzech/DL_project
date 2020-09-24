@@ -8,6 +8,7 @@ class Config():
 
         self.hidden_dim = 200
         self.input_dim = self.beat_size*2
+        self.lstm_dropout = 0.1
         self.dropout = 0.1
         self.lr = 1e-3
 
