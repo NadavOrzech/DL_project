@@ -9,14 +9,7 @@ import torch.utils.data
 import bisect
 
 
-# from config import Config
-
-# BEAT_SIZE = 250
-# SEQ_SIZE = 100
-# OVERLAP = 0
-
-
-class Beat():
+class Beat:
     """
     Class that represents a single Beat
 
@@ -69,8 +62,6 @@ class DataProcessor():
         annotation_atr = wfdb.rdann(recordpath, extension='atr', sampfrom=0, sampto=None)
         annotation_qrs = wfdb.rdann(recordpath, extension='qrs', sampfrom=0, sampto=None)
         Vctrecord = record.p_signals
-        # wfdb.plotrec(record, annotation=annotation_qrs, title='Record 100 from MIT-BIH Arrhythmia Database', timeunits='seconds')
-
         beats_list = self.get_RR_intervals(Vctrecord, annotation_qrs, annotation_atr)
         return beats_list
 
@@ -135,6 +126,15 @@ class DataProcessor():
 
         :return dataset: dataset type torch.utils.data.ConcatDataset
         """
+        if not os.path.isdir(os.path.join('.', 'dataset_checkpoints')):
+            os.mkdir(os.path.join('.', 'dataset_checkpoints'))
+        dataset_file = os.path.join('dataset_checkpoints', 'dataset_{}'.format(self.overlap))
+        seq_file = os.path.join('dataset_checkpoints', 'seq_dataset_{}'.format(self.overlap))
+        if os.path.isfile(dataset_file):
+            print("Loading Dataset checkpoint for overlap: {}".format(self.overlap))
+            dataset = torch.load(dataset_file)
+            seq = torch.load(seq_file)
+            return dataset, seq
         datfiles = glob.glob(os.path.join(self.input_dir, "*.dat"))
         start_time = time.time()
         datasets, weight = [], []
@@ -162,7 +162,8 @@ class DataProcessor():
 
         print(f"elapsed time for preprocess = {time.time() - start_time: .1f} sec")
         print(f"total number of sequences: {num_samples}")
-
+        torch.save(dataset, dataset_file)
+        torch.save(seq_dataset, seq_file)
         return dataset,seq_dataset
 
 
@@ -182,7 +183,6 @@ class IndicesDataset(torch.utils.data.ConcatDataset):
             sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
         
         return self.datasets[dataset_idx][sample_idx], idx
-
 
 
 if __name__ == '__main__':

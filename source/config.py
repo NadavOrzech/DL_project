@@ -11,10 +11,10 @@ class Config():
         self.dropout = 0.1
         self.lr = 1e-3
 
-        self.batch_size = 4
-        self.num_epochs = 2
-        self.early_stopping = 2
+        self.batch_size = 1024
+        self.num_epochs = 20
+        self.early_stopping = 3
 
         # self.files_dir = '/Users/roenglen/Documents/files'
-        # files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\small_files'
-        self.files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files'
+        self.files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
+        # self.files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files'

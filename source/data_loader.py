@@ -1,13 +1,10 @@
 import torch.utils.data
 import torch
-from data_preprocess import DataProcessor
 
 
 class BaseDataloader():
     def __init__(self, config, dataset):
         self.files_dir = config.files_dir
-        # self.processor = DataProcessor(config.files_dir, config.overlap, config.seq_size, config.beat_size)
-        # self.dataset = self.processor.get_data()
         self.dataset = dataset
         self.dataset_size = len(self.dataset)
         self.train_test_ratio = config.train_test_ratio
@@ -23,13 +20,13 @@ class BaseDataloader():
 
         return train_dataloader
 
-
     def get_test_dataloader(self):
         test_sampler = torch.utils.data.SequentialSampler(self.ds_test)
         test_dataloader = torch.utils.data.DataLoader(self.ds_test, batch_size=self.batch_size, sampler=test_sampler,
                                                       shuffle=False, drop_last=True)
 
         return test_dataloader
+
 
 class WeightedDataLoader(BaseDataloader):
     def __init__(self, config, dataset):
@@ -44,7 +41,7 @@ class WeightedDataLoader(BaseDataloader):
                 test_dataloader: type torch.utils.data.Dataloader
         """
         subset_idx = self.ds_train.indices
-        num_pos = len([i for i in subset_idx if self.dataset[i][1]==1])
+        num_pos = len([i for i in subset_idx if self.dataset[i][0][1] == 1])
         num_neg = len(subset_idx)-num_pos
 
         class_sample_count = torch.tensor([num_neg,num_pos])
@@ -60,7 +57,5 @@ class WeightedDataLoader(BaseDataloader):
         
         train_dataloader = torch.utils.data.DataLoader(self.ds_train, batch_size=self.batch_size, sampler=weighted_sampler,
                                                        shuffle=False, drop_last=True)
-
-
         return train_dataloader
 

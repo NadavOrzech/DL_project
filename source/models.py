@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import time
 import sys
 import tqdm
 import os
@@ -8,18 +7,7 @@ import os
 import sklearn
 from cs236781.train_results import BatchResult, EpochResult, FitResult, EpochHeatMap
 from torch.utils.data import DataLoader
-# from data_preprocess import DataProcessor
-
 import torch.optim as optim
-# from data_loader import get_dataloader
-# from data_preprocess import BEAT_SIZE, OVERLAP
-import matplotlib.pyplot as plt
-
-# HIDDEN_SIZE = 400
-# BATCH_SIZE = 4
-# BEATS = BEAT_SIZE*2
-# NUM_EPOCHS = 4
-# DROPOUT = 0.5
 
 
 class BaselineModel(nn.Module):
@@ -46,13 +34,12 @@ class BaselineModel(nn.Module):
             checkpoint_dir = os.path.join('.', 'checkpoints')
             if not os.path.isdir(checkpoint_dir):
                 os.mkdir(checkpoint_dir)
-            self.checkpoint_file=os.path.join(checkpoint_dir, checkpoint_file)
+            self.checkpoint_file = os.path.join(checkpoint_dir, checkpoint_file)
             # os.makedirs(os.path.dirname(checkpoint_file), exist_ok=True)
 
         self.lstm = nn.LSTM(input_size=self.input_dim, hidden_size=self.hidden_dim, num_layers=self.num_layers, bidirectional=True)
         self.max_pool = nn.MaxPool1d(kernel_size=config.seq_size)
         self.linear = nn.Sequential(
-            # nn.MaxPool1d(kernel_size=2),
             nn.Linear(in_features=self.hidden_dim*2, out_features=50),
             nn.ReLU(),
             nn.Dropout(p=self.dropout),
@@ -61,35 +48,31 @@ class BaselineModel(nn.Module):
         )
         # TODO: do we need to initialize the hidden dims?
 
-
-    def save_checkpoint(self, epoch, best_acc,heatmap):
+    def save_checkpoint(self, best_acc, heatmap, fit_result):
         lstm_params = self.lstm.state_dict()
         linear_params = self.linear.state_dict()
         data = dict(
             lstm_params=lstm_params,
-            linear_params= linear_params,
+            linear_params=linear_params,
             best_acc=best_acc,
-            epoch=epoch,
-            heatmap=heatmap
-
+            heatmap=heatmap,
+            fit_result=fit_result,
         )
         torch.save(data, self.checkpoint_file)
 
     def load_checkpoint(self):
         print(f'=== Loading checkpoint {self.checkpoint_file}, ', end='')
-        data = torch.load(self.checkpoint_file)
+        data = torch.load(self.checkpoint_file, map_location=torch.device('cpu'))
         self.lstm.load_state_dict(data['lstm_params'])
         self.linear.load_state_dict(data['linear_params'])
-        print(f'best_accuracy={data["best_acc"]:.2f}')
-        return data['epoch'], data['best_acc'], data['heatmap']
-
-
+        print(f'best_accuracy={data["best_acc"][0]:.2f}')
+        return data['best_acc'], data['heatmap'], data['fit_result']
 
     def forward(self, input):
         lstm_out, (h_n, c_n) = self.lstm(input)
         lstm_out = lstm_out.permute(1, 2, 0)
         max_pool_out = self.max_pool(lstm_out)
-        max_pool_out = max_pool_out.squeeze()#.permute(1,0)
+        max_pool_out = max_pool_out.squeeze()
 
         y_pred = self.linear(max_pool_out)
         return y_pred
@@ -114,33 +97,29 @@ class BaselineModel(nn.Module):
         epochs_without_improvement = 0
         print(f"{'-'*20}Starting training with overlap {self.overlap}{'-'*20}")
 
-        i=0
-        epoch_idx=0
+        # i, epoch_idx = 0, 0
         if self.checkpoint_file and os.path.isfile(self.checkpoint_file):
-            i, best_acc, heat_map_test = self.load_checkpoint()
+            best_acc, heat_map_test, fit_result = self.load_checkpoint()
+            return fit_result, heat_map_test
             
-        for epoch_idx in range(i,max_epochs):
+        for epoch_idx in range(max_epochs):
             print(f'--- EPOCH {epoch_idx + 1}/{max_epochs} ---')
             res_train = self.train_epoch(optimizer, loss_fn, dl_train,)
-            
-            # last_epoch = False
-            # if epoch_idx == max_epochs-1:
-            #     last_epoch=True
-            
+
             res_test, heat_map_test = self.test_epoch(loss_fn, dl_test,True)
 
             if early_stopping is not None:
                 if best_acc is None:
-                    best_acc = res_test[1][-1]
-                elif res_test[1][-1] <= best_acc:
+                    best_acc = res_test[1]
+                elif res_test[1] <= best_acc:
                     epochs_without_improvement += 1
                     if epochs_without_improvement >= early_stopping:
                         break
                 else:
                     epochs_without_improvement = 0
                     best_acc = res_test[1]
-                    if self.checkpoint_file is not None:
-                        self.save_checkpoint(epoch_idx+1, best_acc,heat_map_test)
+                    # if self.checkpoint_file is not None:
+                    #     self.save_checkpoint(epoch_idx+1, best_acc,heat_map_test, res_train, res_test)
 
             train_loss.append(sum(res_train[0]) / len(res_train[0]))
             train_acc.append(res_train[1])
@@ -152,12 +131,13 @@ class BaselineModel(nn.Module):
             test_pos_acc.append(res_test[2])
             test_neg_acc.append(res_test[3])
 
+        fit_result = FitResult(max_epochs, train_loss, train_acc, test_loss, test_acc, train_pos_acc, train_neg_acc, test_pos_acc, test_neg_acc)
+
         if self.checkpoint_file is not None:
-            if best_acc == None: best_acc=res_test[1][-1]
-            self.save_checkpoint(epoch_idx+1, best_acc,heat_map_test)
+            if best_acc is None: best_acc = res_test[1]
+            self.save_checkpoint(best_acc, heat_map_test, fit_result)
 
-
-        return FitResult(max_epochs, train_loss, train_acc, test_loss, test_acc, train_pos_acc, train_neg_acc, test_pos_acc, test_neg_acc), heat_map_test
+        return fit_result, heat_map_test
 
     def train_epoch(self, optimizer, loss_fn, dataloader):
         """
@@ -170,7 +150,6 @@ class BaselineModel(nn.Module):
         train_loss, train_acc, losses = [], [], []
         pos_accuracy, neg_accuracy = [], []
         total_loss, num_correct = 0, 0
-        start_time = time.time()
         tp_tot, fp_tot, tn_tot, fn_tot = 0, 0, 0, 0
         pbar_file = sys.stdout
         pbar_name = "train_batch"
@@ -185,7 +164,6 @@ class BaselineModel(nn.Module):
                 X = X.to(self.device)
                 y = y.to(self.device)
                 y_pred_log_proba = self.forward(X)
-                # last_output = y_pred_log_proba[-1]  # should be of size (N,C) {C is num_classes}
                 y = torch.squeeze(y).long()         # should be of size (N,)
 
                 # Backward pass
@@ -218,8 +196,6 @@ class BaselineModel(nn.Module):
             pos_accuracy.append(pos)
             neg_accuracy.append(neg)
 
-        # print(
-        #     f"train_batch: loss={total_loss / (total_samp / self.batch_size):.3f}, accuracy={num_correct / total_samp:.3f}, elapsed={time.time() - start_time:.1f} sec")
         print(f"accuracy={num_correct / total_samp:.3f}, tp: {tp_tot}, fp: {fp_tot}, tn: {tn_tot}, fn: {fn_tot}")
         print(f"Pos acc: {tp_tot / (tp_tot + fn_tot):.3f},  Neg acc: {tn_tot / (tn_tot + fp_tot):.3f}")
         print('---')
@@ -237,7 +213,6 @@ class BaselineModel(nn.Module):
         pos_accuracy, neg_accuracy = [], []
         y_vals, attention_map, indices_list = [],[],[]
         total_loss, num_correct = 0, 0
-        start_time = time.time()
         tp_tot, fp_tot, tn_tot, fn_tot = 0, 0, 0, 0
         pbar_file = sys.stdout
         pbar_name = "test_batch"
@@ -252,19 +227,13 @@ class BaselineModel(nn.Module):
                     X = torch.transpose(X, dim0=0, dim1=1)
                     X = X.to(self.device)
                     y = y.to(self.device)
-                    # for i in y:
-                    #     y_vals.append(i.item())
                     y_pred_log_proba = self.forward(X)
-                    # for l in self.soft_attn_weights:
-                    #     attention_map.append(l)
                     if get_heatmap:
-                        for i in range(4):
+                        for i in range(self.batch_size):
                             y_vals.append(int(y[i].item()))
                             attention_map.append(self.soft_attn_weights[i])
                             indices_list.append(indices[i].item())
 
-
-                    # last_output = y_pred_log_proba[-1]
                     y = torch.squeeze(y).long()
 
                     loss = loss_fn(y_pred_log_proba, y)
@@ -283,19 +252,6 @@ class BaselineModel(nn.Module):
                     pbar.update()
                     losses.append(loss.item())
 
-            # fig, axes = plt.subplots(ncols=2, sharex='col', sharey=False)
-            # axes[0].plot(y_vals,cmap='Greys', interpolation='nearest')
-            # axes[1].plot(attention_map,cmap='Greys', interpolation='nearest')
-            # plt.show()
-            
-            # ax1 = plt.subplot() 
-            # ax1.plot(y_vals) 
-            # plt.imshow(attention_map, cmap='Greys', interpolation='nearest')
-            # plt.show()
-            # ax2 = plt.subplot() 
-            # ax2.plot(attention_map)
-            # plt.show() 
-
             accuracy = 100. * num_correct / total_samp
             test_loss.append(sum(losses) / len(losses))
             test_acc.append(accuracy)
@@ -303,8 +259,7 @@ class BaselineModel(nn.Module):
             neg = 0 if tn+fp==0 else 100. * tn/(tn+fp)
             pos_accuracy.append(pos)
             neg_accuracy.append(neg)
-        # print(
-        #     f"test_batch: loss={total_loss / (total_samp / self.batch_size):.3f}, accuracy={num_correct / total_samp:.3f}, elapsed={time.time() - start_time:.1f} sec")
+
         print(f"accuracy={num_correct / total_samp:.3f}, tp: {tp_tot}, fp: {fp_tot}, tn: {tn_tot}, fn: {fn_tot}")
         if tp_tot + fn_tot > 0:
             print(f"Pos acc: {tp_tot / (tp_tot + fn_tot):.3f},  Neg acc: {tn_tot / (tn_tot + fp_tot):.3f}")
@@ -327,6 +282,7 @@ class BaselineModel(nn.Module):
             else:
                 tp += 1
         return tp, fp, tn, fn
+
 
 class AttentionModel(BaselineModel):
     def __init__(self, config, device, output_dim=2, num_layers=1,checkpoint_file=None):
@@ -373,12 +329,6 @@ class AttentionModel(BaselineModel):
         attn_weights = torch.bmm(lstm_output, hidden.unsqueeze(2)).squeeze(2)
         self.soft_attn_weights = nn.functional.softmax(attn_weights, 1)
         new_hidden_state = torch.bmm(lstm_output.transpose(1, 2), self.soft_attn_weights.unsqueeze(2)).squeeze(2)
-
-        # plt.imshow(y.detach(), cmap='Greys', interpolation='nearest')
-        # plt.show()
-        # plt.imshow(self.soft_attn_weights.detach(), cmap='Greys', interpolation='nearest')
-        # plt.show()
-
         return new_hidden_state
 
     def forward(self, input):
