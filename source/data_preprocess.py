@@ -120,7 +120,7 @@ class DataProcessor():
 
         return xx, yy, zz
 
-    def get_data(self):
+    def get_data(self, start_file=0, end_file=0):
         """
         Processes the data from self.input_dir and returns a dataset
 
@@ -128,20 +128,32 @@ class DataProcessor():
         """
         if not os.path.isdir(os.path.join('.', 'dataset_checkpoints')):
             os.mkdir(os.path.join('.', 'dataset_checkpoints'))
-        dataset_file = os.path.join('dataset_checkpoints', 'dataset_{}'.format(self.overlap))
-        seq_file = os.path.join('dataset_checkpoints', 'seq_dataset_{}'.format(self.overlap))
-        if os.path.isfile(dataset_file):
-            print("Loading Dataset checkpoint for overlap: {}".format(self.overlap))
-            dataset = torch.load(dataset_file)
-            seq = torch.load(seq_file)
-            return dataset, seq
+
+        suffix=''
+        if start_file == 0 and end_file != 0:
+            suffix = '_train'
+        elif start_file != 0:
+            suffix = '_test'
+
+        # dataset_file = os.path.join('dataset_checkpoints', 'dataset_{}{}'.format(self.overlap,suffix))
+        seq_file = os.path.join('dataset_checkpoints', 'seq_dataset_{}{}'.format(self.overlap,suffix))
+        # if os.path.isfile(seq_file):
+        #     print("Loading Dataset דק/ checkpoint for overlap: {}".format(self.overlap))
+            # dataset = torch.load(dataset_file)
+            # seq = torch.load(seq_file)
+            # return dataset, seq
+
         datfiles = glob.glob(os.path.join(self.input_dir, "*.dat"))
         start_time = time.time()
         datasets, weight = [], []
         seq_datasets = []
         num_samples, num_pos, num_neg = 0, 0, 0
-        for i, datfile in enumerate(datfiles):
-            print("Starting file num: {}/{}".format(i+1, len(datfiles)))
+        
+        if end_file==0:
+            end_file = len(datfiles)
+        
+        for i, datfile in enumerate(datfiles[start_file:end_file]):
+            print("Starting file num: {}/{}".format(i+1, end_file-start_file))
             qf = os.path.splitext(datfile)[0] + '.atr'
             if os.path.isfile(qf):
                 beats_list = self.get_beat_list_from_ecg_data(datfile)
@@ -162,7 +174,7 @@ class DataProcessor():
 
         print(f"elapsed time for preprocess = {time.time() - start_time: .1f} sec")
         print(f"total number of sequences: {num_samples}")
-        torch.save(dataset, dataset_file)
+        # torch.save(dataset, dataset_file)
         torch.save(seq_dataset, seq_file)
         return dataset,seq_dataset
 
@@ -185,9 +197,9 @@ class IndicesDataset(torch.utils.data.ConcatDataset):
         return self.datasets[dataset_idx][sample_idx], idx
 
 
-if __name__ == '__main__':
-    files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
-    files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files\\tmp'
+# if __name__ == '__main__':
+#     files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
+#     files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files\\tmp'
 
-    processor = DataProcessor(files_dir, OVERLAP, SEQ_SIZE)
-    dataset = processor.get_data()
+#     processor = DataProcessor(files_dir, OVERLAP, SEQ_SIZE)
+#     dataset = processor.get_data()

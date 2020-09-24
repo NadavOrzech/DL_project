@@ -2,35 +2,28 @@ import torch.utils.data
 import torch
 
 
-class BaseDataloader():
-    def __init__(self, config, dataset):
+class WeightedDataLoader():
+    def __init__(self, config, dataset, test_dataset=None):
         self.files_dir = config.files_dir
         self.dataset = dataset
         self.dataset_size = len(self.dataset)
         self.train_test_ratio = config.train_test_ratio
         self.batch_size = config.batch_size
 
-        split_lengths = [int(self.dataset_size*self.train_test_ratio), self.dataset_size-int(self.dataset_size*self.train_test_ratio)]
-        self.ds_train, self.ds_test = torch.utils.data.random_split(self.dataset, split_lengths)
-
-    def get_train_dataloader(self):
-        train_sampler = torch.utils.data.SequentialSampler(self.ds_train)
-        train_dataloader = torch.utils.data.DataLoader(self.ds_train, batch_size=self.batch_size, sampler=train_sampler,
-                                                        shuffle=False, drop_last=True)
-
-        return train_dataloader
-
+        # if dataset is None we take the train/test datasets randomly from the entire dataset
+        # else we produce the train/test datasets from different files
+        if test_dataset is None:
+            split_lengths = [int(self.dataset_size*self.train_test_ratio), self.dataset_size-int(self.dataset_size*self.train_test_ratio)]
+            self.ds_train, self.ds_test = torch.utils.data.random_split(self.dataset, split_lengths)
+        else:   
+            self.ds_train, _ =  torch.utils.data.random_split(dataset, [self.dataset_size, 0])
+            self.ds_test, _ = torch.utils.data.random_split(test_dataset, [len(test_dataset), 0])
     def get_test_dataloader(self):
         test_sampler = torch.utils.data.SequentialSampler(self.ds_test)
         test_dataloader = torch.utils.data.DataLoader(self.ds_test, batch_size=self.batch_size, sampler=test_sampler,
                                                       shuffle=False, drop_last=True)
 
         return test_dataloader
-
-
-class WeightedDataLoader(BaseDataloader):
-    def __init__(self, config, dataset):
-        super().__init__(config, dataset)
 
     def get_train_dataloader(self):
         """
