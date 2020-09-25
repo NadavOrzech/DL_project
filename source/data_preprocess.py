@@ -24,13 +24,11 @@ class Beat:
                  start_index: int,
                  end_index: int,
                  p_signal,
-                 symbol: str,
                  index: int,
                  annotation=None):
         self.start_idx = start_index
         self.end_idx = end_index
         self.p_signal = p_signal
-        self.symbol = symbol
         self.index = index
         self.annotation = annotation
 
@@ -76,17 +74,25 @@ class DataProcessor():
         :return beats_list: list of type beat holding beats from file ordered chronology
         """
         # TODO : need to decide if we eliminate "bad" signals (annotation_qrs.symbol not N)
-        start = 0
-        atr_pointer = 0
+        start = annotation_qrs.sample[0]
+        atr_pointer = 1
+        curr_note = 0 if annotation_atr.aux_note[0] == '(N' else 1
         beats_list = []
-        for i, end in enumerate(annotation_qrs.sample):
-            annotation = 0
-            if atr_pointer < len(annotation_atr.sample):
-                if start <= annotation_atr.sample[atr_pointer] <= end:
-                    if annotation_atr.aux_note[atr_pointer] == '(AFIB':
-                        annotation = 1
-                    atr_pointer += 1
-            beat = Beat(start, end, p_signals[start:end], annotation_qrs.symbol[i], i, annotation)
+        for i, end in enumerate(annotation_qrs.sample[1:]):
+            # label = 0
+            if atr_pointer == len(annotation_atr.sample) or end < annotation_atr.sample[atr_pointer]:
+                beat = Beat(start, end, p_signals[start:end], i, curr_note)
+            else:
+                curr_note = 0 if annotation_atr.aux_note[atr_pointer] == '(N' else 1
+                atr_pointer += 1
+
+                beat = Beat(start, end, p_signals[start:end], i, curr_note)
+
+                # if start <= annotation_atr.sample[atr_pointer] <= end:
+                #     if annotation_atr.aux_note[atr_pointer] == '(AFIB':
+                #         annotation = 1
+                #     atr_pointer += 1
+            # beat = Beat(start, end, p_signals[start:end], annotation_qrs.symbol[i], i, annotation)
             beats_list.append(beat)
             start = end
         return beats_list
@@ -100,12 +106,12 @@ class DataProcessor():
          N: number of sequences, S: seq_size, B: beat_size
         :return yy: tensor of shape (N, 1) holding the labeling of the data
         """
-        dim_0_size = math.ceil((len(beats_list) - 5000) / (self.seq_size - self.overlap))
+        dim_0_size = math.ceil(len(beats_list) / (self.seq_size - self.overlap))
         dim_0_counter = 0
         xx = np.zeros((dim_0_size, self.seq_size, self.beat_size, 2))
         yy = np.zeros((dim_0_size, 1))
         zz = np.zeros((dim_0_size, self.seq_size))
-        for j in range(0, len(beats_list) - 5000, self.seq_size - self.overlap):
+        for j in range(0, len(beats_list) - self.seq_size, self.seq_size - self.overlap):
             y = 0
             for i in range(self.seq_size):
                 data = beats_list[j + i].p_signal

@@ -24,26 +24,27 @@ class WeightedDataLoader():
         subset_idx = self.ds_test.indices
         num_pos = len([i for i in subset_idx if self.test_dataset[i][0][1] == 1])
         num_neg = len(subset_idx) - num_pos
-
-        class_sample_count = torch.tensor([num_neg, num_pos])
-        weight = 1. / class_sample_count.float()
-
-        samples_weight = []
-        for i in subset_idx:
-            t = int(self.test_dataset[i][0][1])
-            samples_weight.append(weight[t])
-
-        samples_weight = torch.tensor(samples_weight)
-        weighted_sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
-
-        test_dataloader = torch.utils.data.DataLoader(self.ds_test,
-                                                      batch_size=self.batch_size,
-                                                      sampler=weighted_sampler,
-                                                      shuffle=False, drop_last=True)
-
-        # test_sampler = torch.utils.data.SequentialSampler(self.ds_test)
-        # test_dataloader = torch.utils.data.DataLoader(self.ds_test, batch_size=self.batch_size, sampler=test_sampler,
+        print(f"Num pos in test: {num_pos}, Num neg in test: {num_neg}")
+        #
+        # class_sample_count = torch.tensor([num_neg, num_pos])
+        # weight = 1. / class_sample_count.float()
+        #
+        # samples_weight = []
+        # for i in subset_idx:
+        #     t = int(self.test_dataset[i][0][1])
+        #     samples_weight.append(weight[t])
+        #
+        # samples_weight = torch.tensor(samples_weight)
+        # weighted_sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
+        #
+        # test_dataloader = torch.utils.data.DataLoader(self.ds_test,
+        #                                               batch_size=self.batch_size,
+        #                                               sampler=weighted_sampler,
         #                                               shuffle=False, drop_last=True)
+
+        test_sampler = torch.utils.data.SequentialSampler(self.ds_test)
+        test_dataloader = torch.utils.data.DataLoader(self.ds_test, batch_size=self.batch_size, sampler=test_sampler,
+                                                      shuffle=False, drop_last=True)
 
         return test_dataloader
 
@@ -58,19 +59,24 @@ class WeightedDataLoader():
         subset_idx = self.ds_train.indices
         num_pos = len([i for i in subset_idx if self.dataset[i][0][1] == 1])
         num_neg = len(subset_idx)-num_pos
+        print(f"Num pos in train: {num_pos}, Num neg in train: {num_neg}")
+        #
+        # class_sample_count = torch.tensor([num_neg,num_pos])
+        # weight = 1. / class_sample_count.float()
+        #
+        # samples_weight = []
+        # for i in subset_idx:
+        #     t = int(self.dataset[i][0][1])
+        #     samples_weight.append(weight[t])
+        #
+        # samples_weight = torch.tensor(samples_weight)
+        # weighted_sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
+        #
+        # train_dataloader = torch.utils.data.DataLoader(self.ds_train, batch_size=self.batch_size, sampler=weighted_sampler,
+        #                                                shuffle=False, drop_last=True)
 
-        class_sample_count = torch.tensor([num_neg,num_pos])
-        weight = 1. / class_sample_count.float()
-
-        samples_weight = []
-        for i in subset_idx:
-            t = int(self.dataset[i][0][1])
-            samples_weight.append(weight[t])
-
-        samples_weight = torch.tensor(samples_weight)
-        weighted_sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
-        
-        train_dataloader = torch.utils.data.DataLoader(self.ds_train, batch_size=self.batch_size, sampler=weighted_sampler,
-                                                       shuffle=False, drop_last=True)
+        train_sampler = torch.utils.data.SequentialSampler(self.ds_train)
+        train_dataloader = torch.utils.data.DataLoader(self.ds_train, batch_size=self.batch_size, sampler=train_sampler,
+                                                      shuffle=False, drop_last=True)
         return train_dataloader
 
