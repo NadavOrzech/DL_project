@@ -20,3 +20,10 @@ source/first_graph.png
 source/heatmap.png
 source/dataset_checkpoints/
 source/checkpoints/
+*.png
+*.pyc
+source/checkpoints_overlap_0/
+source/checkpoints_overlap_33_lr_1e3/
+source/checkpoints_overlap_33_lr_5e4/
+source/checkpoints_overlap_33_no_sep/
+source/old_preprocess/

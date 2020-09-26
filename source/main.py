@@ -25,8 +25,8 @@ if __name__ == '__main__':
         base_data = torch.load(base_checkpoint_file, map_location=torch.device('cpu'))
         base_fit_result = base_data['fit_result']
 
-        # seq_file = os.path.join('dataset_checkpoints', 'seq_dataset_{}_test'.format(config.overlap))
-        # seq = torch.load(seq_file)
+        seq_file = os.path.join('dataset_checkpoints', 'seq_dataset_{}_test'.format(config.overlap))
+        seq = torch.load(seq_file)
     else:
         proccesor = DataProcessor(config.files_dir, config.overlap, config.seq_size, config.beat_size)
         train_dataset, train_seq = proccesor.get_data(start_file=0,end_file=20)
@@ -55,6 +55,6 @@ if __name__ == '__main__':
     
     if device.type == 'cpu':
         fig, axes = plot_fit(fit_result, 'Attention_graph', legend='total')
-        # plot_attention_map(heat_map, seq)
+        plot_attention_map(heat_map, seq)
         fig, axes = plot_fit(base_fit_result, 'Baseline_graph', legend='total')
         fig, axes = plot_both_models(fit_attention=fit_result, fit_base=base_fit_result, output_name='compare')
