@@ -4,10 +4,8 @@ import sys
 import tqdm
 import os
 
-import sklearn
-from cs236781.train_results import BatchResult, EpochResult, FitResult, EpochHeatMap
+from cs236781.train_results import EpochResult, FitResult, EpochHeatMap
 from torch.utils.data import DataLoader
-import torch.optim as optim
 
 
 class BaselineModel(nn.Module):
@@ -16,8 +14,10 @@ class BaselineModel(nn.Module):
         Custom Bidirectional LSTM module
 
         :param config:
+        :param device:
         :param output_dim:
         :param num_layers:
+        :param checkpoint_file:
         """
         super().__init__()
         self.input_dim = config.input_dim
@@ -46,7 +46,6 @@ class BaselineModel(nn.Module):
             nn.Linear(in_features=50, out_features=self.output_dim),
             nn.Sigmoid()
         )
-        # TODO: do we need to initialize the hidden dims?
 
     def save_checkpoint(self, best_acc, heatmap, fit_result):
         lstm_params = self.lstm.state_dict()
@@ -189,8 +188,8 @@ class BaselineModel(nn.Module):
             accuracy = 100. * num_correct / total_samp
             train_loss.append(sum(losses) / len(losses))
             train_acc.append(accuracy)
-            pos = 0 if tp+fn==0 else 100. * tp/(tp+fn)
-            neg = 0 if tn+fp==0 else 100. * tn/(tn+fp)
+            pos = 0 if tp+fn == 0 else 100. * tp/(tp+fn)
+            neg = 0 if tn+fp == 0 else 100. * tn/(tn+fp)
             pos_accuracy.append(pos)
             neg_accuracy.append(neg)
 
@@ -253,8 +252,8 @@ class BaselineModel(nn.Module):
             accuracy = 100. * num_correct / total_samp
             test_loss.append(sum(losses) / len(losses))
             test_acc.append(accuracy)
-            pos = 0 if tp+fn==0 else 100. * tp/(tp+fn)
-            neg = 0 if tn+fp==0 else 100. * tn/(tn+fp)
+            pos = 0 if tp+fn == 0 else 100. * tp/(tp+fn)
+            neg = 0 if tn+fp == 0 else 100. * tn/(tn+fp)
             pos_accuracy.append(pos)
             neg_accuracy.append(neg)
 
@@ -285,11 +284,14 @@ class BaselineModel(nn.Module):
 class AttentionModel(BaselineModel):
     def __init__(self, config, device, output_dim=2, num_layers=1,checkpoint_file=None):
         """
-        Custom Bidirectional LSTM module
+        Inheritance class from Baseline model.
+        Applies an attention layer to the model
 
         :param config:
+        :param device:
         :param output_dim:
         :param num_layers:
+        :param checkpoint_file:
         """
         super().__init__(config,device,output_dim,num_layers,checkpoint_file=checkpoint_file)
         self.linear = nn.Sequential(
@@ -302,26 +304,20 @@ class AttentionModel(BaselineModel):
 
     def attention_net(self, lstm_output, final_state):
         """ 
-        Now we will incorporate Attention mechanism in our LSTM model. In this new model, we will use attention to compute soft alignment score corresponding
-        between each of the hidden_state and the last hidden_state of the LSTM. We will be using torch.bmm for the batch matrix multiplication.
+        We will use attention to compute soft alignment score corresponding
+        between each of the hidden_state and the last hidden_state of the LSTM.
+        We will be using torch.bmm for the batch matrix multiplication.
         
-        Arguments
-        ---------
-        
-        lstm_output : Final output of the LSTM which contains hidden layer outputs for each sequence.
-        final_state : Final time-step hidden state (h_n) of the LSTM
-        
-        ---------
-        
-        Returns : It performs attention mechanism by first computing weights for each of the sequence present in lstm_output and and then finally computing the
-                    new hidden state.
+        :param lstm_output : Final output of the LSTM which contains hidden layer outputs for each sequence.
+        :param final_state : Final time-step hidden state (h_n) of the LSTM
+        :returns new_hidden_state: It performs attention mechanism by first computing weights for each of the
+        sequence present in lstm_output and and then finally computing the new hidden state.
                     
         Tensor Size :
                     hidden.size() = (batch_size, hidden_size)
                     attn_weights.size() = (batch_size, num_seq)
                     soft_attn_weights.size() = (batch_size, num_seq)
                     new_hidden_state.size() = (batch_size, hidden_size)
-                        
         """
         hidden = final_state.squeeze(0)
         attn_weights = torch.bmm(lstm_output, hidden.unsqueeze(2)).squeeze(2)
@@ -337,30 +333,3 @@ class AttentionModel(BaselineModel):
         att_output = self.attention_net(lstm_out, h_n)
         y_pred = self.linear(att_output)
         return y_pred
-
-
-def cross_validation(model,train_set,k_folds):
-    kf = sklearn.model_selection.KFold(n_splits=k_folds)
-    # params_grid = {'bostonfeaturestransformer__degree': degree_range, 'linearregressor__reg_lambda': lambda_range}
-    min_acc = np.inf
-    lr_list = [1e-3, 1e-1, 1e-5]
-    loss_fn = nn.CrossEntropyLoss()
-
-    for lr in lr_list:
-        optimizer = optim.Adam(model.parameters(), lr=lr)
-        
-        curr_acc = 0
-        for train_idx, valid_idx in kf.split(train_set):
-            train_x, train_y = X[train_idx], y[train_idx]
-            valid_x, valid_y = X[valid_idx], y[valid_idx]
-            
-
-
-            fit_results = model.fit(train_x, train_y)
-            # y_pred = model.predict(valid_x)
-            # curr_acc += mse_score(valid_y, y_pred)
-        mean = curr_acc/k_folds
-        if mean < min_acc:
-            min_acc=mean
-            best_params = params
-

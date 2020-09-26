@@ -16,7 +16,6 @@ class Beat:
     :param start_index:
     :param end_index:
     :param p_signal: p_signals from the file record
-    :param symbol: label of the beat. i.e "N" , "AFib" ...
     :param index: index of beat in the file
     :param annotation: label of the beat
     """
@@ -73,26 +72,17 @@ class DataProcessor():
         :param annotation_atr: data from atr file - rhythm data
         :return beats_list: list of type beat holding beats from file ordered chronology
         """
-        # TODO : need to decide if we eliminate "bad" signals (annotation_qrs.symbol not N)
         start = annotation_qrs.sample[0]
         atr_pointer = 1
         curr_note = 0 if annotation_atr.aux_note[0] == '(N' else 1
         beats_list = []
         for i, end in enumerate(annotation_qrs.sample[1:]):
-            # label = 0
             if atr_pointer == len(annotation_atr.sample) or end < annotation_atr.sample[atr_pointer]:
                 beat = Beat(start, end, p_signals[start:end], i, curr_note)
             else:
                 curr_note = 0 if annotation_atr.aux_note[atr_pointer] == '(N' else 1
                 atr_pointer += 1
-
                 beat = Beat(start, end, p_signals[start:end], i, curr_note)
-
-                # if start <= annotation_atr.sample[atr_pointer] <= end:
-                #     if annotation_atr.aux_note[atr_pointer] == '(AFIB':
-                #         annotation = 1
-                #     atr_pointer += 1
-            # beat = Beat(start, end, p_signals[start:end], annotation_qrs.symbol[i], i, annotation)
             beats_list.append(beat)
             start = end
         return beats_list
@@ -141,7 +131,6 @@ class DataProcessor():
         elif start_file != 0:
             suffix = '_test'
 
-        # dataset_file = os.path.join('dataset_checkpoints', 'dataset_{}{}'.format(self.overlap,suffix))
         seq_file = os.path.join('dataset_checkpoints', 'seq_dataset_{}{}'.format(self.overlap,suffix))
         # if os.path.isfile(seq_file):
         #     print("Loading Dataset דק/ checkpoint for overlap: {}".format(self.overlap))
@@ -175,7 +164,6 @@ class DataProcessor():
                 seq_datasets.append((z))
 
         dataset = IndicesDataset(datasets)
-        # dataset = torch.utils.data.ConcatDataset(datasets)
         seq_dataset = torch.utils.data.ConcatDataset(seq_datasets)
 
         print(f"elapsed time for preprocess = {time.time() - start_time: .1f} sec")
@@ -201,11 +189,3 @@ class IndicesDataset(torch.utils.data.ConcatDataset):
             sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
         
         return self.datasets[dataset_idx][sample_idx], idx
-
-
-# if __name__ == '__main__':
-#     files_dir = 'C:\\Users\\ronien\\PycharmProjects\\DL_Course\\mit-bih-af\\files'
-#     files_dir = 'C:\\Users\\Dell\\Desktop\\Technion\\DeepLearning\\project_data\\mit-bih\\files\\tmp'
-
-#     processor = DataProcessor(files_dir, OVERLAP, SEQ_SIZE)
-#     dataset = processor.get_data()

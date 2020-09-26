@@ -1,9 +1,9 @@
 import torch.nn as nn
 import torch.optim as optim
-from data_loader import WeightedDataLoader
+from data_loader import CustomDataLoader
 from data_preprocess import DataProcessor
 from models import BaselineModel, AttentionModel
-from cs236781.plot import plot_fit,plot_attention_map
+from cs236781.plot import plot_fit, plot_attention_map, plot_both_models
 from config import Config
 import torch
 import os
@@ -25,15 +25,14 @@ if __name__ == '__main__':
         base_data = torch.load(base_checkpoint_file, map_location=torch.device('cpu'))
         base_fit_result = base_data['fit_result']
 
-        seq_file = os.path.join('dataset_checkpoints', 'seq_dataset_{}_test'.format(config.overlap))
-        seq = torch.load(seq_file)
+        # seq_file = os.path.join('dataset_checkpoints', 'seq_dataset_{}_test'.format(config.overlap))
+        # seq = torch.load(seq_file)
     else:
         proccesor = DataProcessor(config.files_dir, config.overlap, config.seq_size, config.beat_size)
         train_dataset, train_seq = proccesor.get_data(start_file=0,end_file=20)
         test_dataset, test_seq = proccesor.get_data(start_file=20,end_file=23)
 
-
-        dataloader = WeightedDataLoader(config, dataset=train_dataset, test_dataset=test_dataset)
+        dataloader = CustomDataLoader(config, dataset=train_dataset, test_dataset=test_dataset)
         train_dataloader = dataloader.get_train_dataloader()
         test_dataloader = dataloader.get_test_dataloader()
 
@@ -56,5 +55,6 @@ if __name__ == '__main__':
     
     if device.type == 'cpu':
         fig, axes = plot_fit(fit_result, 'Attention_graph', legend='total')
-        plot_attention_map(heat_map, seq)
+        # plot_attention_map(heat_map, seq)
         fig, axes = plot_fit(base_fit_result, 'Baseline_graph', legend='total')
+        fig, axes = plot_both_models(fit_attention=fit_result, fit_base=base_fit_result, output_name='compare')

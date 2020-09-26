@@ -38,6 +38,7 @@ class FitResult(NamedTuple):
     test_pos_acc: List[float]
     test_neg_acc: List[float]
 
+
 class EpochHeatMap(NamedTuple):
     y_vals: List[int]
     attention_map: List[float]
