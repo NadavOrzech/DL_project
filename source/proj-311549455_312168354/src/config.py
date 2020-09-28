@@ -3,7 +3,7 @@ class Config():
     def __init__(self):
         self.beat_size = 200            # size of beat object (p_signals)
         self.seq_size = 100             # number of beats per sequence
-        self.overlap = 33               # size of overlap between sequences
+        self.overlap = 0               # size of overlap between sequences
         self.train_test_ratio = 0.85    # when training and testing on the same files, ratio of sequences between train to test
 
         self.hidden_dim = 200               # hidden dimention for LSTM layer

@@ -11,7 +11,7 @@ import os
 
 if __name__ == '__main__':
     config = Config()
-    checkpoint_dir = os.path.join('.', 'checkpoints')
+    checkpoint_dir = os.path.join('.', 'checkpoints_0_5e-4_best')
     checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_attention')
     base_checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_baseline')
     
