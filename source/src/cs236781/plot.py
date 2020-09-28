@@ -1,5 +1,6 @@
 import math
 import itertools
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -78,6 +79,8 @@ def plot_attention_map(heatmap_res, dataset):
     :return: 
     """
     idx_range = 50
+    if not os.path.isdir(os.path.join('.','heatmaps')):
+        os.mkdir(os.path.join('.','heatmaps'))
 
     for j, start in enumerate(range(0,900,30)):
         fig, ax =plt.subplots(1,2)
@@ -86,9 +89,11 @@ def plot_attention_map(heatmap_res, dataset):
         x_vals = [list(heatmap_res[1][i]) for i in range(start,start+idx_range)]
         
         sns.heatmap(x_vals, ax=ax[0])
+        ax[0].set_title('Attention Map')
         sns.heatmap(y_vals, ax=ax[1])
-
-        plt.savefig('heatmap\\heatmap_{}'.format(j))
+        ax[1].set_title('Data sequences Ground Truth')
+        
+        plt.savefig('heatmaps\\heatmap_{}'.format(j))
 
 
 def plot_both_models(fit_attention, fit_base, output_name):
