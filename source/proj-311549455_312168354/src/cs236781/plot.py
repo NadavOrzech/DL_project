@@ -82,7 +82,9 @@ def plot_attention_map(heatmap_res, dataset):
     if not os.path.isdir(os.path.join('.','heatmaps')):
         os.mkdir(os.path.join('.','heatmaps'))
 
-    for j, start in enumerate(range(0,900,30)):
+    max_len = min(900, len(heatmap_res[2]))
+    
+    for j, start in enumerate(range(0,max_len,30)):
         fig, ax =plt.subplots(1,2)
         indices = heatmap_res[2][start:start+idx_range]
         y_vals = [dataset[i] for i in indices]

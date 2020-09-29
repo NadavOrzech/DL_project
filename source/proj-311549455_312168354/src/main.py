@@ -1,10 +1,12 @@
-import torch.nn as nn
-import torch.optim as optim
+
 from data_loader import CustomDataLoader
 from data_preprocess import DataProcessor
 from models import BaselineModel, AttentionModel
 from cs236781.plot import plot_fit, plot_attention_map, plot_both_models
 from config import Config
+
+import torch.nn as nn
+import torch.optim as optim
 import torch
 import os
 
